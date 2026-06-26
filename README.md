@@ -53,12 +53,14 @@ The key insight: code is chunked **semantically** (by function/class boundary), 
 | Layer | Tool | Why |
 |-------|------|-----|
 | Language | Python 3.10+ | |
-| LLM | Anthropic Claude (claude-sonnet-4-6) | Fast, context-aware answers |
-| Embeddings | `sentence-transformers` (all-MiniLM-L6-v2) | Free, runs locally |
+| LLM | Groq API (Llama 3.3 70B) | Free tier, fast inference |
+| Embeddings | `sentence-transformers` (all-MiniLM-L6-v2) | Free, runs fully locally |
 | Vector search | FAISS | Fast, no external service needed |
 | Code parsing | `tree-sitter` | Understands function/class boundaries |
 | CLI | `argparse` | Simple interface |
 | (Optional) Frontend | Streamlit | Quick web UI |
+
+> **No paid APIs required.** Groq offers a free tier with generous limits. Embeddings and vector search run entirely on your machine.
 
 ---
 
@@ -70,9 +72,9 @@ codesage/
 ├── requirements.txt
 │
 ├── ingestion/
-│   ├── clone.py          # Clone or load a local repo
-│   ├── parser.py         # tree-sitter: extract functions/classes per file
-│   └── chunker.py        # Chunk code by semantic unit
+│   ├── __init__.py
+│   ├── clone.py          # Clone any GitHub repo, discover all code files
+│   └── parser.py         # tree-sitter: extract functions/classes per file
 │
 ├── embedding/
 │   ├── embedder.py       # sentence-transformers wrapper
@@ -82,7 +84,7 @@ codesage/
 │   └── retriever.py      # Query → top-k chunks with file + line references
 │
 ├── generation/
-│   └── llm.py            # Anthropic API call with retrieved context
+│   └── llm.py            # Groq API call with retrieved context
 │
 ├── pipeline.py           # Wires ingestion → embedding → retrieval → generation
 └── main.py               # CLI entrypoint
@@ -100,10 +102,14 @@ cd codesage
 # 2. Install dependencies
 pip install -r requirements.txt
 
-# 3. Set your Anthropic API key
-export ANTHROPIC_API_KEY=your_key_here
+# 3. Get a free Groq API key at https://console.groq.com
+#    No credit card required.
 
-# 4. Index a repo and ask a question
+# 4. Set your Groq API key
+export GROQ_API_KEY=your_key_here       # Mac/Linux
+$env:GROQ_API_KEY="your_key_here"      # Windows PowerShell
+
+# 5. Index a repo and ask a question
 python main.py --repo https://github.com/some-user/some-repo --ask "How does auth work?"
 ```
 
@@ -112,13 +118,14 @@ python main.py --repo https://github.com/some-user/some-repo --ask "How does aut
 ## Roadmap
 
 - [x] Project structure and README
-- [ ] Repo cloning and file traversal
-- [ ] tree-sitter code parsing (function/class chunking)
-- [ ] Embedding pipeline with sentence-transformers
-- [ ] FAISS vector store (build + persist)
-- [ ] Retrieval with file + line number references
-- [ ] LLM generation with Anthropic API
-- [ ] CLI interface
+- [x] Repo cloning and file traversal (`ingestion/clone.py`)
+- [x] tree-sitter code parsing — function/class chunking (`ingestion/parser.py`)
+- [ ] Embedding pipeline with sentence-transformers (`embedding/embedder.py`)
+- [ ] FAISS vector store — build and persist (`embedding/store.py`)
+- [ ] Retrieval with file + line number references (`retrieval/retriever.py`)
+- [ ] LLM generation with Groq API (`generation/llm.py`)
+- [ ] Full pipeline wiring (`pipeline.py`)
+- [ ] CLI interface (`main.py`)
 - [ ] Streamlit web UI
 - [ ] Support for multi-repo indexing
 - [ ] Incremental re-indexing (only re-embed changed files)
