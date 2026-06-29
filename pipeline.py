@@ -204,18 +204,18 @@ if __name__ == "__main__":
 
     # Use a small repo for fast testing
     # You can change this to any public GitHub repo
-    REPO_URL  = "https://github.com/tiangolo/fastapi"
-    INDEX_NAME = "fastapi"
+    REPO_URL   = "https://github.com/karpathy/micrograd"
+    INDEX_NAME = "micrograd"
 
     # --- Index the repo (skips if already done) ---
     pipe.index(repo_url=REPO_URL, name=INDEX_NAME)
 
     # --- Ask questions ---
     questions = [
-        "How does request routing work?",
-        "How does FastAPI handle dependency injection?",
-        "Where are HTTP exceptions defined and raised?",
-    ]
+    "How does backpropagation work?",
+    "How is a neuron implemented?",
+    "How does the Value class compute gradients?",
+]
 
     print(f"\n{'='*50}")
     print("  QUERY MODE")

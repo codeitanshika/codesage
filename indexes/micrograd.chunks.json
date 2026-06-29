@@ -1,0 +1,128 @@
+[
+  {
+    "content": "# micrograd\n\n![awww](puppy.jpg)\n\nA tiny Autograd engine (with a bite! :)). Implements backpropagation (reverse-mode autodiff) over a dynamically built DAG and a small neural networks library on top of it with a PyTorch-like API. Both are tiny, with about 100 and 50 lines of code respectively. The DAG only operates over scalar values, so e.g. we chop up each neuron into all of its individual tiny adds and multiplies. However, this is enough to build up entire deep neural nets doing binary classification, as the demo notebook shows. Potentially useful for educational purposes.",
+    "file_path": "C:\\Users\\user4\\AppData\\Local\\Temp\\codesage_4g5iuilt\\README.md",
+    "rel_path": "README.md",
+    "type": "section",
+    "name": "micrograd",
+    "start_line": 2,
+    "end_line": 7
+  },
+  {
+    "content": "### Installation\n\n```bash\npip install micrograd\n```",
+    "file_path": "C:\\Users\\user4\\AppData\\Local\\Temp\\codesage_4g5iuilt\\README.md",
+    "rel_path": "README.md",
+    "type": "section",
+    "name": "Installation",
+    "start_line": 8,
+    "end_line": 13
+  },
+  {
+    "content": "### Example usage\n\nBelow is a slightly contrived example showing a number of possible supported operations:\n\n```python\nfrom micrograd.engine import Value\n\na = Value(-4.0)\nb = Value(2.0)\nc = a + b\nd = a * b + b**3\nc += c + 1\nc += 1 + c + (-a)\nd += d * 2 + (b + a).relu()\nd += 3 * d + (b - a).relu()\ne = c - d\nf = e**2\ng = f / 2.0\ng += 10.0 / f\nprint(f'{g.data:.4f}') # prints 24.7041, the outcome of this forward pass\ng.backward()\nprint(f'{a.grad:.4f}') # prints 138.8338, i.e. the numerical value of dg/da\nprint(f'{b.grad:.4f}') # prints 645.5773, i.e. the numerical value of dg/db\n```",
+    "file_path": "C:\\Users\\user4\\AppData\\Local\\Temp\\codesage_4g5iuilt\\README.md",
+    "rel_path": "README.md",
+    "type": "section",
+    "name": "Example usage",
+    "start_line": 14,
+    "end_line": 38
+  },
+  {
+    "content": "### Training a neural net\n\nThe notebook `demo.ipynb` provides a full demo of training an 2-layer neural network (MLP) binary classifier. This is achieved by initializing a neural net from `micrograd.nn` module, implementing a simple svm \"max-margin\" binary classification loss and using SGD for optimization. As shown in the notebook, using a 2-layer neural net with two 16-node hidden layers we achieve the following decision boundary on the moon dataset:\n\n![2d neuron](moon_mlp.png)",
+    "file_path": "C:\\Users\\user4\\AppData\\Local\\Temp\\codesage_4g5iuilt\\README.md",
+    "rel_path": "README.md",
+    "type": "section",
+    "name": "Training a neural net",
+    "start_line": 39,
+    "end_line": 44
+  },
+  {
+    "content": "### Tracing / visualization\n\nFor added convenience, the notebook `trace_graph.ipynb` produces graphviz visualizations. E.g. this one below is of a simple 2D neuron, arrived at by calling `draw_dot` on the code below, and it shows both the data (left number in each node) and the gradient (right number in each node).\n\n```python\nfrom micrograd import nn\nn = nn.Neuron(2)\nx = [Value(1.0), Value(-2.0)]\ny = n(x)\ndot = draw_dot(y)\n```\n\n![2d neuron](gout.svg)",
+    "file_path": "C:\\Users\\user4\\AppData\\Local\\Temp\\codesage_4g5iuilt\\README.md",
+    "rel_path": "README.md",
+    "type": "section",
+    "name": "Tracing / visualization",
+    "start_line": 45,
+    "end_line": 58
+  },
+  {
+    "content": "### Running tests\n\nTo run the unit tests you will have to install [PyTorch](https://pytorch.org/), which the tests use as a reference for verifying the correctness of the calculated gradients. Then simply:\n\n```bash\npython -m pytest\n```",
+    "file_path": "C:\\Users\\user4\\AppData\\Local\\Temp\\codesage_4g5iuilt\\README.md",
+    "rel_path": "README.md",
+    "type": "section",
+    "name": "Running tests",
+    "start_line": 59,
+    "end_line": 66
+  },
+  {
+    "content": "class Value:\n    \"\"\" stores a single scalar value and its gradient \"\"\"\n\n    def __init__(self, data, _children=(), _op=''):\n        self.data = data\n        self.grad = 0\n        # internal variables used for autograd graph construction\n        self._backward = lambda: None\n        self._prev = set(_children)\n        self._op = _op # the op that produced this node, for graphviz / debugging / etc\n\n    def __add__(self, other):\n        other = other if isinstance(other, Value) else Value(other)\n        out = Value(self.data + other.data, (self, other), '+')\n\n        def _backward():\n            self.grad += out.grad\n            other.grad += out.grad\n        out._backward = _backward\n\n        return out\n\n    def __mul__(self, other):\n        other = other if isinstance(other, Value) else Value(other)\n        out = Value(self.data * other.data, (self, other), '*')\n\n        def _backward():\n            self.grad += other.data * out.grad\n            other.grad += self.data * out.grad\n        out._backward = _backward\n\n        return out\n\n    def __pow__(self, other):\n        assert isinstance(other, (int, float)), \"only supporting int/float powers for now\"\n        out = Value(self.data**other, (self,), f'**{other}')\n\n        def _backward():\n            self.grad += (other * self.data**(other-1)) * out.grad\n        out._backward = _backward\n\n        return out\n\n    def relu(self):\n        out = Value(0 if self.data < 0 else self.data, (self,), 'ReLU')\n\n        def _backward():\n            self.grad += (out.data > 0) * out.grad\n        out._backward = _backward\n\n        return out\n\n    def backward(self):\n\n        # topological order all of the children in the graph\n        topo = []\n        visited = set()\n        def build_topo(v):\n            if v not in visited:\n                visited.add(v)\n                for child in v._prev:\n                    build_topo(child)\n                topo.append(v)\n        build_topo(self)\n\n        # go one variable at a time and apply the chain rule to get its gradient\n        self.grad = 1\n        for v in reversed(topo):\n            v._backward()\n\n    def __neg__(self): # -self\n        return self * -1\n\n    def __radd__(self, other): # other + self\n        return self + other\n\n    def __sub__(self, other): # self - other\n        return self + (-other)\n\n    def __rsub__(self, other): # other - self\n        return other + (-self)\n\n    def __rmul__(self, other): # other * self\n        return self * other\n\n    def __truediv__(self, other): # self / other\n        return self * other**-1\n\n    def __rtruediv__(self, other): # other / self\n        return other * self**-1\n\n    def __repr__(self):\n        return f\"Value(data={self.data}, grad={self.grad})\"",
+    "file_path": "C:\\Users\\user4\\AppData\\Local\\Temp\\codesage_4g5iuilt\\micrograd\\engine.py",
+    "rel_path": "micrograd\\engine.py",
+    "type": "class",
+    "name": "Value",
+    "start_line": 2,
+    "end_line": 94
+  },
+  {
+    "content": "class Module:\n\n    def zero_grad(self):\n        for p in self.parameters():\n            p.grad = 0\n\n    def parameters(self):\n        return []",
+    "file_path": "C:\\Users\\user4\\AppData\\Local\\Temp\\codesage_4g5iuilt\\micrograd\\nn.py",
+    "rel_path": "micrograd\\nn.py",
+    "type": "class",
+    "name": "Module",
+    "start_line": 4,
+    "end_line": 11
+  },
+  {
+    "content": "class Neuron(Module):\n\n    def __init__(self, nin, nonlin=True):\n        self.w = [Value(random.uniform(-1,1)) for _ in range(nin)]\n        self.b = Value(0)\n        self.nonlin = nonlin\n\n    def __call__(self, x):\n        act = sum((wi*xi for wi,xi in zip(self.w, x)), self.b)\n        return act.relu() if self.nonlin else act\n\n    def parameters(self):\n        return self.w + [self.b]\n\n    def __repr__(self):\n        return f\"{'ReLU' if self.nonlin else 'Linear'}Neuron({len(self.w)})\"",
+    "file_path": "C:\\Users\\user4\\AppData\\Local\\Temp\\codesage_4g5iuilt\\micrograd\\nn.py",
+    "rel_path": "micrograd\\nn.py",
+    "type": "class",
+    "name": "Neuron",
+    "start_line": 13,
+    "end_line": 28
+  },
+  {
+    "content": "class Layer(Module):\n\n    def __init__(self, nin, nout, **kwargs):\n        self.neurons = [Neuron(nin, **kwargs) for _ in range(nout)]\n\n    def __call__(self, x):\n        out = [n(x) for n in self.neurons]\n        return out[0] if len(out) == 1 else out\n\n    def parameters(self):\n        return [p for n in self.neurons for p in n.parameters()]\n\n    def __repr__(self):\n        return f\"Layer of [{', '.join(str(n) for n in self.neurons)}]\"",
+    "file_path": "C:\\Users\\user4\\AppData\\Local\\Temp\\codesage_4g5iuilt\\micrograd\\nn.py",
+    "rel_path": "micrograd\\nn.py",
+    "type": "class",
+    "name": "Layer",
+    "start_line": 30,
+    "end_line": 43
+  },
+  {
+    "content": "class MLP(Module):\n\n    def __init__(self, nin, nouts):\n        sz = [nin] + nouts\n        self.layers = [Layer(sz[i], sz[i+1], nonlin=i!=len(nouts)-1) for i in range(len(nouts))]\n\n    def __call__(self, x):\n        for layer in self.layers:\n            x = layer(x)\n        return x\n\n    def parameters(self):\n        return [p for layer in self.layers for p in layer.parameters()]\n\n    def __repr__(self):\n        return f\"MLP of [{', '.join(str(layer) for layer in self.layers)}]\"",
+    "file_path": "C:\\Users\\user4\\AppData\\Local\\Temp\\codesage_4g5iuilt\\micrograd\\nn.py",
+    "rel_path": "micrograd\\nn.py",
+    "type": "class",
+    "name": "MLP",
+    "start_line": 45,
+    "end_line": 60
+  },
+  {
+    "content": "import setuptools\n\nwith open(\"README.md\", \"r\") as fh:\n    long_description = fh.read()\n\nsetuptools.setup(\n    name=\"micrograd\",\n    version=\"0.1.0\",\n    author=\"Andrej Karpathy\",\n    author_email=\"andrej.karpathy@gmail.com\",\n    description=\"A tiny scalar-valued autograd engine with a small PyTorch-like neural network library on top.\",\n    long_description=long_description,\n    long_description_content_type=\"text/markdown\",\n    url=\"https://github.com/karpathy/micrograd\",\n    packages=setuptools.find_packages(),\n    classifiers=[\n        \"Programming Language :: Python :: 3\",\n        \"License :: OSI Approved :: MIT License\",\n        \"Operating System :: OS Independent\",\n    ],\n    python_requires='>=3.6',\n)",
+    "file_path": "C:\\Users\\user4\\AppData\\Local\\Temp\\codesage_4g5iuilt\\setup.py",
+    "rel_path": "setup.py",
+    "type": "file",
+    "name": "setup.py",
+    "start_line": 1,
+    "end_line": 22
+  },
+  {
+    "content": "def test_sanity_check():\n\n    x = Value(-4.0)\n    z = 2 * x + 2 + x\n    q = z.relu() + z * x\n    h = (z * z).relu()\n    y = h + q + q * x\n    y.backward()\n    xmg, ymg = x, y\n\n    x = torch.Tensor([-4.0]).double()\n    x.requires_grad = True\n    z = 2 * x + 2 + x\n    q = z.relu() + z * x\n    h = (z * z).relu()\n    y = h + q + q * x\n    y.backward()\n    xpt, ypt = x, y\n\n    # forward pass went well\n    assert ymg.data == ypt.data.item()\n    # backward pass went well\n    assert xmg.grad == xpt.grad.item()",
+    "file_path": "C:\\Users\\user4\\AppData\\Local\\Temp\\codesage_4g5iuilt\\test\\test_engine.py",
+    "rel_path": "test\\test_engine.py",
+    "type": "function",
+    "name": "test_sanity_check",
+    "start_line": 4,
+    "end_line": 26
+  },
+  {
+    "content": "def test_more_ops():\n\n    a = Value(-4.0)\n    b = Value(2.0)\n    c = a + b\n    d = a * b + b**3\n    c += c + 1\n    c += 1 + c + (-a)\n    d += d * 2 + (b + a).relu()\n    d += 3 * d + (b - a).relu()\n    e = c - d\n    f = e**2\n    g = f / 2.0\n    g += 10.0 / f\n    g.backward()\n    amg, bmg, gmg = a, b, g\n\n    a = torch.Tensor([-4.0]).double()\n    b = torch.Tensor([2.0]).double()\n    a.requires_grad = True\n    b.requires_grad = True\n    c = a + b\n    d = a * b + b**3\n    c = c + c + 1\n    c = c + 1 + c + (-a)\n    d = d + d * 2 + (b + a).relu()\n    d = d + 3 * d + (b - a).relu()\n    e = c - d\n    f = e**2\n    g = f / 2.0\n    g = g + 10.0 / f\n    g.backward()\n    apt, bpt, gpt = a, b, g\n\n    tol = 1e-6\n    # forward pass went well\n    assert abs(gmg.data - gpt.data.item()) < tol\n    # backward pass went well\n    assert abs(amg.grad - apt.grad.item()) < tol\n    assert abs(bmg.grad - bpt.grad.item()) < tol",
+    "file_path": "C:\\Users\\user4\\AppData\\Local\\Temp\\codesage_4g5iuilt\\test\\test_engine.py",
+    "rel_path": "test\\test_engine.py",
+    "type": "function",
+    "name": "test_more_ops",
+    "start_line": 28,
+    "end_line": 67
+  }
+]
