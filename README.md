@@ -10,12 +10,12 @@ CodeSage lets you point at any GitHub repository and have a conversation with it
 
 Instead of reading through hundreds of files to understand an unfamiliar codebase, you ask:
 
-- *"Where is authentication handled?"*
-- *"How does the payment flow work?"*
-- *"What does the `UserService` class do?"*
+- *"How does backpropagation work?"*
+- *"Where are HTTP exceptions raised?"*
+- *"What does the `Value` class do?"*
 - *"Which files should I edit to add a new API route?"*
 
-CodeSage indexes the repo, understands the code semantically, and gives you grounded, file-referenced answers.
+CodeSage indexes the repo, understands the code semantically, and gives you grounded answers with exact file and line references.
 
 ---
 
@@ -31,16 +31,16 @@ Clone & parse files (.py, .js, .ts, .java, etc.)
 Chunk by function / class (not just word count)
     │
     ▼
-Embed each chunk → vector (sentence-transformers)
+Embed each chunk → vector (sentence-transformers, runs locally)
     │
     ▼
-Store in vector DB (FAISS)
+Store in vector DB (FAISS, saved to disk)
     │
     ▼
 User asks a question
     │
     ├── Embed the question
-    ├── Find top-k most similar chunks
+    ├── Find top-k most similar chunks (cosine similarity)
     └── Send [question + chunks] to LLM → answer with file references
 ```
 
@@ -50,17 +50,15 @@ The key insight: code is chunked **semantically** (by function/class boundary), 
 
 ## Tech stack
 
-| Layer | Tool | Why |
-|-------|------|-----|
-| Language | Python 3.10+ | |
-| LLM | Groq API (Llama 3.3 70B) | Free tier, fast inference |
+| Layer | Tool | Cost |
+|-------|------|------|
+| Language | Python 3.10+ | Free |
+| LLM | Groq API (Llama 3.3 70B) | Free tier, no card needed |
 | Embeddings | `sentence-transformers` (all-MiniLM-L6-v2) | Free, runs fully locally |
-| Vector search | FAISS | Fast, no external service needed |
-| Code parsing | `tree-sitter` | Understands function/class boundaries |
-| CLI | `argparse` | Simple interface |
-| (Optional) Frontend | Streamlit | Quick web UI |
+| Vector search | FAISS | Free, no external service |
+| Code parsing | `tree-sitter` | Free, runs locally |
 
-> **No paid APIs required.** Groq offers a free tier with generous limits. Embeddings and vector search run entirely on your machine.
+> **No paid APIs required.** Get a free Groq key at [console.groq.com](https://console.groq.com) — no credit card.
 
 ---
 
@@ -70,6 +68,9 @@ The key insight: code is chunked **semantically** (by function/class boundary), 
 codesage/
 ├── README.md
 ├── requirements.txt
+├── .gitignore
+├── main.py               # CLI entrypoint (index / ask / chat)
+├── pipeline.py           # Wires all modules together
 │
 ├── ingestion/
 │   ├── __init__.py
@@ -77,17 +78,13 @@ codesage/
 │   └── parser.py         # tree-sitter: extract functions/classes per file
 │
 ├── embedding/
-│   ├── embedder.py       # sentence-transformers wrapper
-│   └── store.py          # FAISS index: build, save, load
+│   ├── __init__.py
+│   ├── embedder.py       # sentence-transformers: text → vectors
+│   └── store.py          # FAISS index: build, save, load, search
 │
-├── retrieval/
-│   └── retriever.py      # Query → top-k chunks with file + line references
-│
-├── generation/
-│   └── llm.py            # Groq API call with retrieved context
-│
-├── pipeline.py           # Wires ingestion → embedding → retrieval → generation
-└── main.py               # CLI entrypoint
+└── generation/
+    ├── __init__.py
+    └── llm.py            # Groq API: question + chunks → answer
 ```
 
 ---
@@ -102,15 +99,57 @@ cd codesage
 # 2. Install dependencies
 pip install -r requirements.txt
 
-# 3. Get a free Groq API key at https://console.groq.com
-#    No credit card required.
+# 3. Get a free Groq API key at https://console.groq.com (no credit card)
 
-# 4. Set your Groq API key
-export GROQ_API_KEY=your_key_here       # Mac/Linux
-$env:GROQ_API_KEY="your_key_here"      # Windows PowerShell
+# 4. Set your key
+export GROQ_API_KEY=your_key_here        # Mac/Linux
+$env:GROQ_API_KEY="your_key_here"       # Windows PowerShell
 
-# 5. Index a repo and ask a question
-python main.py --repo https://github.com/some-user/some-repo --ask "How does auth work?"
+# 5. Index a repo
+python main.py index --repo https://github.com/karpathy/micrograd
+
+# 6. Ask a question
+python main.py ask --index micrograd --question "how does backpropagation work?"
+
+# 7. Or start an interactive chat
+python main.py chat --index micrograd
+```
+
+---
+
+## CLI reference
+
+```
+# Index a repo (run once per repo)
+python main.py index --repo <github_url>
+python main.py index --repo <github_url> --name my-index
+python main.py index --repo <github_url> --force        # re-index even if exists
+python main.py index --repo <github_url> --ask "question"  # index then ask
+
+# Ask a single question
+python main.py ask --index <name> --question "your question"
+python main.py ask --index <name> -q "your question" --no-sources
+
+# Interactive chat (ask multiple questions)
+python main.py chat --index <name>
+```
+
+---
+
+## Example output
+
+```
+❓ Question: How does backpropagation work?
+
+📂 Retrieved 5 relevant chunks:
+   0.821  micrograd/engine.py:85   [function] backward
+   0.743  micrograd/engine.py:32   [function] _backward
+   0.698  README.md:45             [section] Training a neural net
+
+💬 Answer:
+Backpropagation in micrograd is implemented through the `backward` method
+in `micrograd/engine.py:85`. It performs a topological sort of the computation
+graph, then calls each node's `_backward` function in reverse order...
 ```
 
 ---
@@ -120,12 +159,11 @@ python main.py --repo https://github.com/some-user/some-repo --ask "How does aut
 - [x] Project structure and README
 - [x] Repo cloning and file traversal (`ingestion/clone.py`)
 - [x] tree-sitter code parsing — function/class chunking (`ingestion/parser.py`)
-- [ ] Embedding pipeline with sentence-transformers (`embedding/embedder.py`)
-- [ ] FAISS vector store — build and persist (`embedding/store.py`)
-- [ ] Retrieval with file + line number references (`retrieval/retriever.py`)
-- [ ] LLM generation with Groq API (`generation/llm.py`)
-- [ ] Full pipeline wiring (`pipeline.py`)
-- [ ] CLI interface (`main.py`)
+- [x] Embedding pipeline with sentence-transformers (`embedding/embedder.py`)
+- [x] FAISS vector store — build and persist (`embedding/store.py`)
+- [x] LLM generation with Groq API (`generation/llm.py`)
+- [x] Full pipeline wiring (`pipeline.py`)
+- [x] CLI interface — index / ask / chat (`main.py`)
 - [ ] Streamlit web UI
 - [ ] Support for multi-repo indexing
 - [ ] Incremental re-indexing (only re-embed changed files)
@@ -140,15 +178,13 @@ CodeSage uses `tree-sitter` to parse the AST and chunk by actual code units (fun
 
 ---
 
-## Learning goals
+## What I learned building this
 
-This project was built to understand RAG from the ground up:
-
-1. How LLMs and LLM APIs work (tokens, context windows, prompt structure)
-2. What embeddings are and why they capture semantic meaning
-3. How vector search works (cosine similarity, FAISS indexes)
-4. How to chunk documents intelligently for retrieval quality
-5. How to wire all of the above into a production-style pipeline
+1. **LLMs and LLM APIs** — tokens, context windows, prompt structure, grounding
+2. **Embeddings** — how text becomes vectors, why similar meaning = similar numbers
+3. **Vector search** — cosine similarity, FAISS indexes, nearest neighbour search
+4. **Code parsing** — ASTs, tree-sitter, chunking by semantic unit vs word count
+5. **RAG pipeline** — how retrieval + generation work together end to end
 
 ---
 
