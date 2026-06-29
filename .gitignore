@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+
+# Indexes — FAISS binary files, can be large
+# Regenerate with: python main.py index --repo <url>
+indexes/
+
+# Environment variables — never commit your API keys
+.env
+*.env
+
+# OS
+.DS_Store
+Thumbs.db
+
+# VS Code
+.vscode/
+
+# Temp files from cloning
+codesage_*/
