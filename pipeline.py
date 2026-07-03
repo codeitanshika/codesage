@@ -36,6 +36,10 @@ from embedding.embedder import Embedder, embed_chunks
 from embedding.store import VectorStore
 from generation.llm import LLMGenerator
 
+import hashlib
+import json
+from pathlib import Path
+
 
 class CodeSagePipeline:
     """
@@ -66,7 +70,28 @@ class CodeSagePipeline:
     # ------------------------------------------------------------------
     # Step 1: INDEX
     # ------------------------------------------------------------------
+    def _compute_file_hashes(self, file_paths: list[str]) -> dict[str, str]:
+        """Compute MD5 hash for each file. Used to detect changes."""
+        hashes = {}
+        for fp in file_paths:
+            try:
+                content = Path(fp).read_bytes()
+                hashes[fp] = hashlib.md5(content).hexdigest()
+            except OSError:
+                pass
+        return hashes
 
+    def _load_saved_hashes(self, name: str) -> dict[str, str]:
+        """Load previously saved file hashes from disk."""
+        hash_path = Path(self.index_dir) / f"{name}.hashes.json"
+        if hash_path.exists():
+            return json.loads(hash_path.read_text())
+        return {}
+
+    def _save_hashes(self, name: str, hashes: dict[str, str]):
+        """Save file hashes to disk alongside the index."""
+        hash_path = Path(self.index_dir) / f"{name}.hashes.json"
+        hash_path.write_text(json.dumps(hashes, indent=2))
     def index(self, repo_url: str, name: str = None, force: bool = False) -> VectorStore:
         """
         Clone a repo, parse it, embed all chunks, and save the FAISS index.
@@ -111,14 +136,33 @@ class CodeSagePipeline:
         print(f"  Done in {time.time()-t:.1f}s\n")
 
         # --- Step 2: Parse into chunks ---
-        print("Step 2/4: Parsing files into chunks...")
+        # --- Step 2: Parse into chunks (incremental) ---
+        print("Step 2/4: Parsing files into chunks (incremental diff)...")
         t = time.time()
-        chunks = parse_repo(file_paths, repo_root)
+
+        # Compute hashes for all current files
+        current_hashes = self._compute_file_hashes(file_paths)
+        saved_hashes = self._load_saved_hashes(name) if not force else {}
+
+        # Find changed or new files
+        changed_files = [
+            fp for fp in file_paths
+            if current_hashes.get(fp) != saved_hashes.get(fp)
+        ]
+        unchanged_files = [fp for fp in file_paths if fp not in changed_files]
+
+        print(f"  Total files : {len(file_paths)}")
+        print(f"  Changed     : {len(changed_files)} (will re-embed)")
+        print(f"  Unchanged   : {len(unchanged_files)} (skipping)")
+
+        if not changed_files and saved_hashes:
+            print("  Nothing changed — index is already up to date.")
+            store = VectorStore(name=name, index_dir=self.index_dir)
+            store.load()
+            return store
+
+        chunks = parse_repo(changed_files, repo_root)
         print(f"  Done in {time.time()-t:.1f}s\n")
-
-        if not chunks:
-            raise RuntimeError("No chunks extracted. Check that the repo has supported file types.")
-
         # --- Step 3: Embed chunks ---
         print("Step 3/4: Embedding chunks...")
         t = time.time()
@@ -138,7 +182,8 @@ class CodeSagePipeline:
         total_time = time.time() - total_start
         print(f"\n✅ Indexing complete in {total_time:.1f}s")
         print(f"   {store.chunk_count} chunks indexed and ready to search.\n")
-
+        # Save file hashes for next incremental run
+        self._save_hashes(name, current_hashes)
         return store
 
     # ------------------------------------------------------------------
