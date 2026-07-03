@@ -1,16 +1,21 @@
-# CodeSage dependencies
-# Install with: pip install -r requirements.txt
+# CodeSage backend dependencies
 
-# LLM — Groq API client (free tier, no credit card)
-groq>=0.9.0
+# API
+fastapi==0.115.0
+uvicorn==0.30.6
+python-multipart==0.0.9
+python-dotenv==1.0.1
 
-# Embeddings — runs fully locally, no API needed
-sentence-transformers>=3.0.0
+# LLM
+groq==0.9.0
 
-# Vector search — fast local similarity search
-faiss-cpu>=1.8.0
+# Embeddings (runs locally)
+sentence-transformers==3.0.1
 
-# Code parsing — understands function/class boundaries
-tree-sitter>=0.23.0
-tree-sitter-python>=0.23.0
-tree-sitter-javascript>=0.23.0
+# Vector search
+faiss-cpu==1.8.0
+
+# Code parsing
+tree-sitter==0.23.0
+tree-sitter-python==0.23.0
+tree-sitter-javascript==0.23.0
