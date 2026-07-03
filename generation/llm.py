@@ -64,7 +64,6 @@ class LLMGenerator:
             )
         self.client = Groq(api_key=api_key)
 
-    def answer(self, question: str, chunks: list[dict], top_k: int = 5) -> str:
         """
         Generate an answer to a question using retrieved code chunks.
 
@@ -83,34 +82,40 @@ class LLMGenerator:
             This is called "grounding" — the LLM is anchored to real code,
             not its training data, so it can't hallucinate file names.
         """
-        # Take only the top chunks (already sorted by score from store.search)
+
+    def answer(self, question: str, chunks: list[dict], history: list[dict] = None, top_k: int = 5) -> str:
         top_chunks = chunks[:top_k]
 
         if not top_chunks:
             return "No relevant code found in the indexed repository for that question."
 
-        # Build the context block — this is what gets injected into the prompt
         context = self._format_chunks(top_chunks)
 
-        # Build the full user message
-        user_message = f"""Here are the relevant code chunks from the repository:
+        messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+
+        if history:
+            for turn in history:
+                messages.append({
+                    "role": turn["role"],
+                    "content": turn["content"]
+                })
+
+        messages.append({
+            "role": "user",
+            "content": f"""Here are the relevant code chunks from the repository:
 
 {context}
 
 Question: {question}
 
 Please answer based on the code chunks above, referencing specific files and line numbers."""
+        })
 
-        # Call the Groq API
         response = self.client.chat.completions.create(
             model=self.model,
-            messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user",   "content": user_message},
-            ],
+            messages=messages,
             max_tokens=MAX_TOKENS,
-            temperature=0.1,  # low temperature = focused, deterministic answers
-                              # (we want facts, not creativity)
+            temperature=0.1,
         )
 
         return response.choices[0].message.content

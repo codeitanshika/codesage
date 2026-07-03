@@ -86,6 +86,8 @@ class AskRequest(BaseModel):
     question: str           # e.g. "how does backpropagation work?"
     index_name: str         # which index to search, e.g. "micrograd"
     top_k: int = 5          # how many chunks to retrieve
+    history: list[dict] = []  
+
 
 class SourceChunk(BaseModel):
     """One retrieved code chunk — shown as a source card in the UI."""
@@ -291,6 +293,8 @@ def ask_question(request: AskRequest):
     answer = pipe.generator.answer(
         question=request.question,
         chunks=results,
+        history=request.history,   
+
     )
 
     # Build source chunks for the frontend to display as cards

@@ -184,7 +184,15 @@ export default function App() {
     setMessages(prev => [...prev, { role: "user", content: question }]);
     setLoading(true);
     try {
-      const res = await axios.post(`${API}/ask`, { question, index_name: activeIndex, top_k: 5 });
+      const res = await axios.post(`${API}/ask`, {
+    question,
+    index_name: activeIndex,
+    top_k: 5,
+    history: messages
+        .filter(m => m.role === "user" || m.role === "assistant")
+        .map(m => ({ role: m.role, content: m.content }))
+        .slice(-6),  // last 3 turns (6 messages) to avoid token limits
+});
       setMessages(prev => [...prev, { role: "assistant", content: res.data.answer, sources: res.data.sources }]);
     } catch (e) {
       setMessages(prev => [...prev, { role: "assistant", content: `❌ ${e.response?.data?.detail || "Something went wrong."}`, sources: [] }]);
