@@ -318,7 +318,55 @@ def ask_question(request: AskRequest):
         question=request.question,
     )
 
+class AskMultiRequest(BaseModel):
+    question: str
+    index_names: list[str]   # list of indexes to search
+    top_k: int = 3           # chunks per repo (3 × repos = total results)
+    history: list[dict] = []
 
+@app.post("/ask-multi")
+def ask_multi(request: AskMultiRequest):
+    """
+    Search across multiple indexes at once and generate one unified answer.
+    Results from all repos are merged and ranked by score before sending to LLM.
+    """
+    all_results = []
+
+    for index_name in request.index_names:
+        store = VectorStore(name=index_name)
+        if not store.exists():
+            continue
+        store.load()
+        query_vec = pipe.embedder.embed_one(request.question)
+        results = store.search(query_vec, top_k=request.top_k)
+        # Tag each result with which repo it came from
+        for r in results:
+            r["repo"] = index_name
+        all_results.extend(results)
+
+    if not all_results:
+        raise HTTPException(status_code=404, detail="No results found across any index.")
+
+    # Sort all results by score — best chunks from any repo float to the top
+    all_results.sort(key=lambda x: x["score"], reverse=True)
+
+    # Take top 5 overall
+    top_results = all_results[:5]
+
+    answer = pipe.generator.answer(
+        question=request.question,
+        chunks=top_results,
+        history=request.history,
+    )
+
+    sources = [SourceChunk(**{k: v for k, v in r.items() if k != "repo"}) for r in top_results]
+
+    return AskResponse(
+        answer=answer,
+        sources=sources,
+        index_name="multi: " + ", ".join(request.index_names),
+        question=request.question,
+    )
 # ---------------------------------------------------------------------------
 # Run directly:
 # python api.py

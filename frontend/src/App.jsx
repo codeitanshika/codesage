@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import axios from "axios";
 import ReactMarkdown from "react-markdown";
 
+
 const API = "http://localhost:8000";
 
 // ─── Source chunk card ───────────────────────────────────────────────────────
@@ -109,6 +110,7 @@ export default function App() {
   const [indexing, setIndexing]       = useState(false);
   const [indexMsg, setIndexMsg]       = useState("");
   const bottomRef = useRef(null);
+  const [multiMode, setMultiMode]     = useState(false); 
 
   useEffect(() => { fetchIndexes(); }, []);
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
@@ -184,15 +186,17 @@ export default function App() {
     setMessages(prev => [...prev, { role: "user", content: question }]);
     setLoading(true);
     try {
-      const res = await axios.post(`${API}/ask`, {
-    question,
-    index_name: activeIndex,
-    top_k: 5,
-    history: messages
-        .filter(m => m.role === "user" || m.role === "assistant")
-        .map(m => ({ role: m.role, content: m.content }))
-        .slice(-6),  // last 3 turns (6 messages) to avoid token limits
-});
+      const history = messages
+    .filter(m => m.role === "user" || m.role === "assistant")
+    .map(m => ({ role: m.role, content: m.content }))
+    .slice(-6);
+
+const endpoint = multiMode ? `${API}/ask-multi` : `${API}/ask`;
+const payload = multiMode
+    ? { question, index_names: indexes, top_k: 3, history }
+    : { question, index_name: activeIndex, top_k: 5, history };
+
+const res = await axios.post(endpoint, payload);
       setMessages(prev => [...prev, { role: "assistant", content: res.data.answer, sources: res.data.sources }]);
     } catch (e) {
       setMessages(prev => [...prev, { role: "assistant", content: `❌ ${e.response?.data?.detail || "Something went wrong."}`, sources: [] }]);
@@ -266,6 +270,18 @@ export default function App() {
               <span className="text-xs px-2 py-0.5 rounded bg-green-900 text-green-400 border border-green-700">● live</span>
               <span className="text-sm font-semibold">{activeIndex}</span>
               <span className="text-xs text-gray-500">— ask anything about this codebase</span>
+                  {indexes.length > 1 && (
+                    <button
+                      onClick={() => setMultiMode(!multiMode)}
+                      className={`ml-auto text-xs px-3 py-1 rounded border transition-colors cursor-pointer ${
+                        multiMode
+                          ? "bg-blue-900 text-blue-300 border-blue-600"
+                          : "text-gray-500 border-gray-600 hover:border-gray-400 bg-transparent"
+                      }`}
+                    >
+                      {multiMode ? "● searching all repos" : "search all repos"}
+                    </button>
+                  )}
             </>
           ) : (
             <span className="text-xs text-gray-500">Select or index a repo to start chatting</span>
