@@ -21,6 +21,8 @@ Run with:
 """
 
 from dotenv import load_dotenv
+
+from embedding.store import VectorStore
 load_dotenv()
 
 import os
@@ -333,7 +335,7 @@ def ask_multi(request: AskMultiRequest):
     all_results = []
 
     for index_name in request.index_names:
-        store = VectorStore(name=index_name)
+        store = VectorStore(name=index_name, index_dir="indexes")
         if not store.exists():
             continue
         store.load()
