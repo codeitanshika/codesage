@@ -20,11 +20,16 @@ Run with:
     uvicorn api:app --reload --port 8000
 """
 
+from dotenv import load_dotenv
+load_dotenv()
+
 import os
 import time
 import threading
 from pathlib import Path
 from typing import Optional
+
+
 
 from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
