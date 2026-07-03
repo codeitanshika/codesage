@@ -369,6 +369,88 @@ def ask_multi(request: AskMultiRequest):
         index_name="multi: " + ", ".join(request.index_names),
         question=request.question,
     )
+
+class ReviewRequest(BaseModel):
+    index_name: str
+    focus: str = "general"  # "general", "security", "performance", "error-handling"
+
+class ReviewResponse(BaseModel):
+    issues: str
+    index_name: str
+    focus: str
+
+@app.post("/review", response_model=ReviewResponse)
+def review_code(request: ReviewRequest):
+    """
+    Analyze an indexed codebase for issues and suggest fixes.
+    Retrieves key chunks and sends them to LLM with a code-review prompt.
+    """
+    from embedding.store import VectorStore
+
+    store = VectorStore(name=request.index_name, index_dir="indexes")
+    if not store.exists():
+        raise HTTPException(status_code=404, detail=f"Index '{request.index_name}' not found.")
+    store.load()
+
+    # Use focused queries based on review type
+    review_queries = {
+        "general":        "error handling bugs edge cases missing validation",
+        "security":       "authentication authorization SQL injection input validation secrets",
+        "performance":    "slow queries N+1 caching bottleneck optimization",
+        "error-handling": "try catch exception missing error handling failure modes",
+    }
+
+    query = review_queries.get(request.focus, review_queries["general"])
+    query_vec = pipe.embedder.embed_one(query)
+    results = store.search(query_vec, top_k=8)
+
+    if not results:
+        raise HTTPException(status_code=404, detail="No code found to review.")
+
+    # Build context
+    context = "\n\n".join([
+        f"[{r['rel_path']}:{r['start_line']}-{r['end_line']}] {r['type']}: {r['name']}\n```\n{r['content']}\n```"
+        for r in results
+    ])
+
+    review_prompt = f"""You are a senior software engineer doing a code review.
+
+Focus area: {request.focus.upper()}
+
+Review the following code chunks and identify REAL issues — not nitpicks.
+
+{context}
+
+For each issue found:
+1. State the problem in one line
+2. Show the exact file and line: `filename.py:line`
+3. Show the problematic code (brief)
+4. Show the fix with corrected code
+
+Format each issue as:
+### Issue N: <short title>
+**File:** `path/to/file.py:line`
+**Problem:** one sentence
+**Suggested fix:**
+**Current code:**
+If no real issues found in a category, say so honestly.
+Maximum 5 issues. Be specific, not generic."""
+
+    response = pipe.generator.client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=[
+            {"role": "user", "content": review_prompt}
+        ],
+        max_tokens=2000,
+        temperature=0.1,
+    )
+
+    return ReviewResponse(
+        issues=response.choices[0].message.content,
+        index_name=request.index_name,
+        focus=request.focus,
+    )
+    
 # ---------------------------------------------------------------------------
 # Run directly:
 # python api.py

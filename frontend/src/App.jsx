@@ -111,6 +111,9 @@ export default function App() {
   const [indexMsg, setIndexMsg]       = useState("");
   const bottomRef = useRef(null);
   const [multiMode, setMultiMode]     = useState(false); 
+  const [reviewMode, setReviewMode]   = useState(false);
+  const [reviewFocus, setReviewFocus] = useState("general");
+  const [reviewing, setReviewing]     = useState(false);
 
   useEffect(() => { fetchIndexes(); }, []);
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
@@ -204,7 +207,26 @@ const res = await axios.post(endpoint, payload);
       setLoading(false);
     }
   }
-
+async function handleReview() {
+    if (!activeIndex || reviewing) return;
+    setReviewing(true);
+    addSystemMsg(`🔍 Reviewing ${activeIndex} (focus: ${reviewFocus})...`);
+    try {
+        const res = await axios.post(`${API}/review`, {
+            index_name: activeIndex,
+            focus: reviewFocus,
+        });
+        setMessages(prev => [...prev, {
+            role: "assistant",
+            content: res.data.issues,
+            sources: [],
+        }]);
+    } catch (e) {
+        addSystemMsg("❌ Review failed: " + (e.response?.data?.detail || e.message));
+    } finally {
+        setReviewing(false);
+    }
+}
   function handleKey(e) {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleAsk(); }
   }
@@ -239,7 +261,7 @@ const res = await axios.post(endpoint, payload);
           )}
         </div>
 
-        <div className="flex-1 overflow-y-auto">
+        <div className="overflow-y-auto" style={{maxHeight: "200px"}}>
           <div className="text-xs text-gray-500 uppercase tracking-widest px-5 py-3">Indexed repos</div>
           {indexes.length === 0 && <div className="text-xs text-gray-600 px-5">No indexes yet.</div>}
           {indexes.map(name => (
@@ -255,6 +277,34 @@ const res = await axios.post(endpoint, payload);
               {name}
             </div>
           ))}
+        </div>
+        {/* Code Review */}
+        {activeIndex && (
+            <div className="px-4 py-4 border-t border-gray-700">
+                <div className="text-xs text-gray-500 uppercase tracking-widest mb-2">Code Review</div>
+                <select
+                    className="w-full bg-gray-950 border border-gray-700 rounded-lg px-3 py-2 text-xs text-gray-100 outline-none focus:border-blue-500 transition-colors font-mono"
+                    value={reviewFocus}
+                    onChange={e => setReviewFocus(e.target.value)}
+                >
+                    <option value="general">General</option>
+                    <option value="security">Security</option>
+                    <option value="performance">Performance</option>
+                    <option value="error-handling">Error Handling</option>
+                </select>
+                <button
+                    className="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs py-2 rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
+                    onClick={handleReview}
+                    disabled={reviewing}
+                >
+                    {reviewing ? "Reviewing..." : "Review Code"}
+                </button>
+            </div>
+        )}
+
+        {/* Footer - already exists */}
+        <div className="px-5 py-3 border-t border-gray-700 text-xs text-gray-600">
+          RAG · FAISS · Groq · Llama 3.3
         </div>
 
         <div className="px-5 py-3 border-t border-gray-700 text-xs text-gray-600">
