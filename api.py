@@ -1,0 +1,321 @@
+"""
+api.py
+
+The FastAPI backend for CodeSage.
+
+This file is the bridge between your React frontend and the pipeline
+you already built. It exposes your pipeline as HTTP endpoints that
+any frontend (or anyone on the internet) can call.
+
+Remember your pipeline.py? You used it like this in the terminal:
+    pipe.index("https://github.com/...")
+    pipe.query("how does auth work?", "my-index")
+
+Now we wrap those same calls in HTTP endpoints:
+    POST /index  → pipe.index(...)
+    POST /ask    → pipe.query(...)
+    GET  /status → check if index exists
+
+Run with:
+    uvicorn api:app --reload --port 8000
+"""
+
+import os
+import time
+import threading
+from pathlib import Path
+from typing import Optional
+
+from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+
+from pipeline import CodeSagePipeline
+
+
+# ---------------------------------------------------------------------------
+# App setup
+# ---------------------------------------------------------------------------
+
+app = FastAPI(
+    title="CodeSage API",
+    description="Ask questions about any codebase using RAG",
+    version="1.0.0",
+)
+
+# CORS — this is what allows your React frontend (running on localhost:5173)
+# to talk to this backend (running on localhost:8000).
+# Without this, the browser blocks cross-origin requests.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],   # in production you'd lock this to your frontend URL
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# One shared pipeline instance — we don't want to reload the embedding model
+# on every request. It loads once when the server starts, stays in memory.
+# This is the same CodeSagePipeline you used in pipeline.py
+pipe = CodeSagePipeline()
+
+# Track indexing jobs so the frontend can poll for progress
+# Structure: { index_name: { "status": "indexing"|"done"|"error", "message": str } }
+indexing_jobs: dict[str, dict] = {}
+
+
+# ---------------------------------------------------------------------------
+# Request / Response models (Pydantic)
+# ---------------------------------------------------------------------------
+# Pydantic models define the shape of data coming in and going out.
+# FastAPI uses them to validate requests and generate docs automatically.
+# Think of them as the contract between frontend and backend.
+
+class IndexRequest(BaseModel):
+    """What the frontend sends when asking to index a repo."""
+    repo_url: str           # e.g. "https://github.com/karpathy/micrograd"
+    name: Optional[str] = None   # optional custom name, defaults to repo name
+    force: bool = False     # if True, re-index even if index exists
+
+class AskRequest(BaseModel):
+    """What the frontend sends when asking a question."""
+    question: str           # e.g. "how does backpropagation work?"
+    index_name: str         # which index to search, e.g. "micrograd"
+    top_k: int = 5          # how many chunks to retrieve
+
+class SourceChunk(BaseModel):
+    """One retrieved code chunk — shown as a source card in the UI."""
+    score: float
+    rel_path: str           # e.g. "micrograd/engine.py"
+    name: str               # function/class name
+    type: str               # "function", "class", "section", etc.
+    start_line: int
+    end_line: int
+    content: str            # the actual code — shown highlighted in the UI
+
+class AskResponse(BaseModel):
+    """What we send back after answering a question."""
+    answer: str             # the LLM's answer
+    sources: list[SourceChunk]   # the chunks that were retrieved
+    index_name: str
+    question: str
+
+class IndexResponse(BaseModel):
+    """What we send back after starting an index job."""
+    index_name: str
+    status: str             # "started", "already_exists", "error"
+    message: str
+
+class StatusResponse(BaseModel):
+    """What we send back when checking if an index exists."""
+    index_name: str
+    exists: bool
+    chunk_count: Optional[int] = None
+    status: Optional[str] = None   # "indexing", "done", "error" if job running
+
+
+# ---------------------------------------------------------------------------
+# Helper
+# ---------------------------------------------------------------------------
+
+def _name_from_url(url: str) -> str:
+    """Derive an index name from a GitHub URL — same logic as main.py."""
+    return url.rstrip("/").split("/")[-1].replace(".git", "")
+
+
+# ---------------------------------------------------------------------------
+# Endpoints
+# ---------------------------------------------------------------------------
+
+@app.get("/")
+def root():
+    """Health check — lets you verify the server is running."""
+    return {"message": "CodeSage API is running", "version": "1.0.0"}
+
+
+@app.get("/status/{index_name}", response_model=StatusResponse)
+def get_status(index_name: str):
+    """
+    Check if an index exists and is ready to query.
+
+    The React frontend calls this:
+    1. After submitting a repo URL — to show a loading spinner while indexing
+    2. On page load — to restore the last used index
+
+    This maps to VectorStore.exists() from your embedding/store.py
+    """
+    from embedding.store import VectorStore
+
+    # Check if there's an active indexing job for this name
+    job = indexing_jobs.get(index_name)
+    if job:
+        return StatusResponse(
+            index_name=index_name,
+            exists=False,
+            status=job["status"],
+        )
+
+    store = VectorStore(name=index_name)
+    if store.exists():
+        store.load()
+        return StatusResponse(
+            index_name=index_name,
+            exists=True,
+            chunk_count=store.chunk_count,
+            status="done",
+        )
+
+    return StatusResponse(index_name=index_name, exists=False)
+
+
+@app.get("/indexes")
+def list_indexes():
+    """
+    List all available indexes on disk.
+
+    The React frontend uses this to show a dropdown of indexed repos
+    so the user can switch between them.
+    """
+    index_dir = Path("indexes")
+    if not index_dir.exists():
+        return {"indexes": []}
+
+    # Find all .faiss files — each one is an index
+    names = [
+        f.stem
+        for f in index_dir.glob("*.faiss")
+    ]
+    return {"indexes": sorted(names)}
+
+
+@app.post("/index", response_model=IndexResponse)
+def index_repo(request: IndexRequest, background_tasks: BackgroundTasks):
+    """
+    Index a GitHub repo — clone, parse, embed, save to FAISS.
+
+    This is the expensive operation (can take minutes for large repos).
+    We run it in a background thread so the API doesn't hang.
+    The frontend polls GET /status/{name} to check progress.
+
+    This calls pipe.index() from your pipeline.py — the same function
+    you called manually in the terminal with:
+        python main.py index --repo https://github.com/...
+    """
+    repo_url = request.repo_url.strip()
+    index_name = request.name or _name_from_url(repo_url)
+
+    # If already indexed and not forcing, return immediately
+    if not request.force:
+        from embedding.store import VectorStore
+        store = VectorStore(name=index_name)
+        if store.exists():
+            return IndexResponse(
+                index_name=index_name,
+                status="already_exists",
+                message=f"Index '{index_name}' already exists. Use force=true to re-index.",
+            )
+
+    # Mark as indexing
+    indexing_jobs[index_name] = {"status": "indexing", "message": "Starting..."}
+
+    def run_indexing():
+        """Runs in a background thread."""
+        try:
+            indexing_jobs[index_name]["message"] = "Cloning repo..."
+            pipe.index(repo_url=repo_url, name=index_name, force=request.force)
+            indexing_jobs[index_name] = {"status": "done", "message": "Indexing complete."}
+        except Exception as e:
+            indexing_jobs[index_name] = {"status": "error", "message": str(e)}
+
+    # BackgroundTasks runs run_indexing() after sending the response
+    # So the frontend gets an immediate "started" response, then polls for completion
+    background_tasks.add_task(run_indexing)
+
+    return IndexResponse(
+        index_name=index_name,
+        status="started",
+        message=f"Indexing '{repo_url}' in background. Poll GET /status/{index_name} for progress.",
+    )
+
+
+@app.post("/ask", response_model=AskResponse)
+def ask_question(request: AskRequest):
+    """
+    Answer a question about an indexed repo.
+
+    This is what the frontend calls every time the user sends a message
+    in the chat UI.
+
+    Under the hood this calls:
+    1. embedder.embed_one(question)        — from embedding/embedder.py
+    2. store.search(query_vec, top_k)      — from embedding/store.py
+    3. generator.answer(question, chunks)  — from generation/llm.py
+
+    All wired together through pipe.query() from pipeline.py.
+
+    Returns the answer + the source chunks (shown as cards in the UI).
+    """
+    from embedding.store import VectorStore
+
+    # Check index exists
+    store = VectorStore(name=request.index_name)
+    if not store.exists():
+        # Also check if it's currently being indexed
+        job = indexing_jobs.get(request.index_name)
+        if job and job["status"] == "indexing":
+            raise HTTPException(
+                status_code=409,
+                detail=f"Index '{request.index_name}' is still being built. Please wait.",
+            )
+        raise HTTPException(
+            status_code=404,
+            detail=f"Index '{request.index_name}' not found. Index the repo first.",
+        )
+
+    # Embed question + retrieve chunks (from store.py)
+    store.load()
+    query_vec = pipe.embedder.embed_one(request.question)
+    results = store.search(query_vec, top_k=request.top_k)
+
+    if not results:
+        raise HTTPException(
+            status_code=404,
+            detail="No relevant chunks found for that question.",
+        )
+
+    # Generate answer with Groq (from llm.py)
+    answer = pipe.generator.answer(
+        question=request.question,
+        chunks=results,
+    )
+
+    # Build source chunks for the frontend to display as cards
+    sources = [
+        SourceChunk(
+            score=r["score"],
+            rel_path=r["rel_path"],
+            name=r["name"],
+            type=r["type"],
+            start_line=r["start_line"],
+            end_line=r["end_line"],
+            content=r["content"],
+        )
+        for r in results
+    ]
+
+    return AskResponse(
+        answer=answer,
+        sources=sources,
+        index_name=request.index_name,
+        question=request.question,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Run directly:
+# python api.py
+# or preferably:
+# uvicorn api:app --reload --port 8000
+# ---------------------------------------------------------------------------
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("api:app", host="0.0.0.0", port=8000, reload=True)
