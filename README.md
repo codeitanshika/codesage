@@ -1,4 +1,4 @@
-# CodeSage 🔍
+# CodeSage ⚡
 
 > Ask questions about any codebase in plain English — powered by RAG (Retrieval-Augmented Generation)
 
@@ -6,16 +6,16 @@
 
 ## What is this?
 
-CodeSage lets you point at any GitHub repository and have a conversation with it.
+CodeSage is an AI-powered developer tool that lets you have a conversation with any GitHub repository.
 
 Instead of reading through hundreds of files to understand an unfamiliar codebase, you ask:
 
-- *"How does backpropagation work?"*
-- *"Where are HTTP exceptions raised?"*
-- *"What does the `Value` class do?"*
+- *"How does the diagnosis agent work?"*
+- *"Where is authentication handled?"*
+- *"What does the `UserService` class do?"*
 - *"Which files should I edit to add a new API route?"*
 
-CodeSage indexes the repo, understands the code semantically, and gives you grounded answers with exact file and line references.
+CodeSage indexes the repo, understands the code semantically, and gives you grounded answers with exact file and line references — backed by the actual source code.
 
 ---
 
@@ -28,7 +28,7 @@ GitHub Repo
 Clone & parse files (.py, .js, .ts, .java, etc.)
     │
     ▼
-Chunk by function / class (not just word count)
+Chunk by function / class using tree-sitter (not arbitrary word count)
     │
     ▼
 Embed each chunk → vector (sentence-transformers, runs locally)
@@ -44,7 +44,7 @@ User asks a question
     └── Send [question + chunks] to LLM → answer with file references
 ```
 
-The key insight: code is chunked **semantically** (by function/class boundary), not by arbitrary word count. This means each retrieved chunk is a complete, meaningful unit — not half a function.
+The key insight: code is chunked **semantically** (by function/class boundary using AST parsing), not by arbitrary word count. Every retrieved chunk is a complete, meaningful unit — not half a function.
 
 ---
 
@@ -57,8 +57,35 @@ The key insight: code is chunked **semantically** (by function/class boundary), 
 | Embeddings | `sentence-transformers` (all-MiniLM-L6-v2) | Free, runs fully locally |
 | Vector search | FAISS | Free, no external service |
 | Code parsing | `tree-sitter` | Free, runs locally |
+| Backend | FastAPI + uvicorn | Free |
+| Frontend | React + Tailwind CSS | Free |
+| Deployment | Render (backend) + Vercel (frontend) | Free tier |
 
 > **No paid APIs required.** Get a free Groq key at [console.groq.com](https://console.groq.com) — no credit card.
+
+---
+
+## Features
+
+### Core RAG Pipeline
+Built from scratch — no LangChain, no frameworks. Every component written and understood from the ground up.
+
+- **AST-based code chunking** — tree-sitter parses code into functions and classes, not arbitrary word-count chunks. Each retrieved chunk is a complete, runnable unit.
+- **Local embeddings** — sentence-transformers runs entirely on your machine. No API calls, no cost, no internet required after first download.
+- **FAISS vector search** — indexes and searches thousands of code chunks in milliseconds using cosine similarity.
+- **Groq LLM integration** — Llama 3.3 70B generates grounded answers using only the retrieved code as context. Never hallucinates file names.
+
+### Chat Interface
+- **Index any GitHub repo from the UI** — paste a URL, click Index. Indexes in the background, polls for completion, activates automatically.
+- **Code-first answers** — answers lead with actual code snippets and file references (`filename.py:line`), not paragraphs of explanation.
+- **Expandable source cards** — every answer shows retrieved chunks with file path, line numbers, match score, and actual code. Click to expand.
+- **Persistent chat history** — follow-up questions work. "What did you mean by that?" has context from the last 3 conversation turns.
+
+### Advanced Features
+- **Multi-repo search** — toggle "search all repos" to search across every indexed codebase simultaneously. Results merged and ranked by relevance score.
+- **Incremental re-indexing** — MD5 hashes track which files changed. Only re-embeds changed files on re-index. Unchanged files are skipped entirely.
+- **Code review** — dedicated review mode with four focus areas: General, Security, Performance, Error Handling. Returns structured issues with file references, current code, and suggested fixes.
+- **Export review as Markdown** — download any code review as a `.md` file with repo name, focus area, date, and full structured output.
 
 ---
 
@@ -69,22 +96,38 @@ codesage/
 ├── README.md
 ├── requirements.txt
 ├── .gitignore
-├── main.py               # CLI entrypoint (index / ask / chat)
-├── pipeline.py           # Wires all modules together
+├── .env                      # GROQ_API_KEY (never committed)
+│
+├── main.py                   # CLI entrypoint (index / ask / chat)
+├── pipeline.py               # Wires all modules together
+├── api.py                    # FastAPI backend (HTTP endpoints)
 │
 ├── ingestion/
 │   ├── __init__.py
-│   ├── clone.py          # Clone any GitHub repo, discover all code files
-│   └── parser.py         # tree-sitter: extract functions/classes per file
+│   ├── clone.py              # Clone any GitHub repo, discover code files
+│   └── parser.py             # tree-sitter: extract functions/classes per file
 │
 ├── embedding/
 │   ├── __init__.py
-│   ├── embedder.py       # sentence-transformers: text → vectors
-│   └── store.py          # FAISS index: build, save, load, search
+│   ├── embedder.py           # sentence-transformers: text → vectors
+│   └── store.py              # FAISS index: build, save, load, search
 │
-└── generation/
-    ├── __init__.py
-    └── llm.py            # Groq API: question + chunks → answer
+├── generation/
+│   ├── __init__.py
+│   └── llm.py                # Groq API: question + chunks → answer
+│
+├── indexes/                  # FAISS indexes saved here (gitignored)
+│   ├── my-repo.faiss
+│   ├── my-repo.chunks.json
+│   └── my-repo.hashes.json   # MD5 hashes for incremental re-indexing
+│
+└── frontend/                 # React + Tailwind frontend
+    ├── src/
+    │   ├── App.jsx            # Main app (chat UI, sidebar, source cards)
+    │   ├── main.jsx
+    │   └── index.css
+    ├── index.html
+    └── vite.config.js
 ```
 
 ---
@@ -93,104 +136,121 @@ codesage/
 
 ```bash
 # 1. Clone this repo
-git clone https://github.com/YOUR_USERNAME/codesage.git
+git clone https://github.com/codeitanshika/codesage.git
 cd codesage
 
-# 2. Install dependencies
+# 2. Install Python dependencies
 pip install -r requirements.txt
 
 # 3. Get a free Groq API key at https://console.groq.com (no credit card)
 
-# 4. Set your key
-export GROQ_API_KEY=your_key_here        # Mac/Linux
-$env:GROQ_API_KEY="your_key_here"       # Windows PowerShell
+# 4. Create .env file
+echo GROQ_API_KEY=your_key_here > .env
 
-# 5. Index a repo
+# 5. Start the backend
+uvicorn api:app --reload --port 8000
+
+# 6. In a new terminal, start the frontend
+cd frontend
+npm install
+npm run dev
+
+# 7. Open http://localhost:5173
+```
+
+Or use the CLI directly:
+```bash
+# Index a repo
 python main.py index --repo https://github.com/karpathy/micrograd
 
-# 6. Ask a question
+# Ask a question
 python main.py ask --index micrograd --question "how does backpropagation work?"
 
-# 7. Or start an interactive chat
+# Interactive chat
 python main.py chat --index micrograd
 ```
 
 ---
 
-## CLI reference
+## API endpoints
 
-```
-# Index a repo (run once per repo)
-python main.py index --repo <github_url>
-python main.py index --repo <github_url> --name my-index
-python main.py index --repo <github_url> --force        # re-index even if exists
-python main.py index --repo <github_url> --ask "question"  # index then ask
-
-# Ask a single question
-python main.py ask --index <name> --question "your question"
-python main.py ask --index <name> -q "your question" --no-sources
-
-# Interactive chat (ask multiple questions)
-python main.py chat --index <name>
-```
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/` | Health check |
+| GET | `/indexes` | List all indexed repos |
+| GET | `/status/{name}` | Check indexing status |
+| POST | `/index` | Index a GitHub repo (background) |
+| POST | `/ask` | Ask a question about an index |
+| POST | `/ask-multi` | Search across multiple indexes |
+| POST | `/review` | Run a code review with focus area |
 
 ---
 
-## Example output
+## CLI reference
 
-```
-❓ Question: How does backpropagation work?
+```bash
+# Index
+python main.py index --repo <github_url>
+python main.py index --repo <github_url> --name my-index
+python main.py index --repo <github_url> --force    # force re-index
+python main.py index --repo <github_url> --ask "question"
 
-📂 Retrieved 5 relevant chunks:
-   0.821  micrograd/engine.py:85   [function] backward
-   0.743  micrograd/engine.py:32   [function] _backward
-   0.698  README.md:45             [section] Training a neural net
+# Ask
+python main.py ask --index <name> --question "your question"
+python main.py ask --index <name> -q "your question" --no-sources
 
-💬 Answer:
-Backpropagation in micrograd is implemented through the `backward` method
-in `micrograd/engine.py:85`. It performs a topological sort of the computation
-graph, then calls each node's `_backward` function in reverse order...
+# Chat
+python main.py chat --index <name>
 ```
 
 ---
 
 ## Roadmap
 
-- [x] Project structure and README
-- [x] Repo cloning and file traversal (`ingestion/clone.py`)
-- [x] tree-sitter code parsing — function/class chunking (`ingestion/parser.py`)
-- [x] Embedding pipeline with sentence-transformers (`embedding/embedder.py`)
-- [x] FAISS vector store — build and persist (`embedding/store.py`)
-- [x] LLM generation with Groq API (`generation/llm.py`)
-- [x] Full pipeline wiring (`pipeline.py`)
-- [x] CLI interface — index / ask / chat (`main.py`)
-- [ ] Streamlit web UI
-- [ ] Support for multi-repo indexing
-- [ ] Incremental re-indexing (only re-embed changed files)
+### Completed
+- [x] AST-based code chunking with tree-sitter
+- [x] Local embeddings with sentence-transformers
+- [x] FAISS vector store (build, save, load, search)
+- [x] Groq LLM integration (Llama 3.3 70B)
+- [x] CLI interface (index / ask / chat)
+- [x] FastAPI backend with REST endpoints
+- [x] React + Tailwind frontend
+- [x] Index any GitHub repo from the UI
+- [x] Code-first answer style
+- [x] Expandable source cards with file references
+- [x] Persistent chat history (follow-up questions)
+- [x] Multi-repo search
+- [x] Incremental re-indexing with MD5 hashing
+- [x] Code review (Security / Performance / General / Error Handling)
+- [x] Export review as Markdown
+
+### Coming Soon
+- [ ] GitHub link generation (file references → clickable GitHub links)
+- [ ] Onboarding report (auto-generated entry point for any new repo)
+- [ ] Structured review panel (tabbed UI with issue cards)
+- [ ] Severity indicators per issue (High / Medium / Low)
+- [ ] "Ask about this issue" button on review cards
+- [ ] Review history (save and reload past reviews)
 
 ---
 
 ## Why this is different from "chat with your PDF"
 
-Most RAG demos chunk text by word count and embed paragraphs. That works for prose, but breaks for code — you end up retrieving half a function or a random block mid-loop.
+Most RAG demos chunk text by word count. That works for prose but breaks for code — you get half a function or a random block mid-loop.
 
-CodeSage uses `tree-sitter` to parse the AST and chunk by actual code units (functions, classes, methods). Every retrieved chunk is a complete, runnable piece of code with its file path and line numbers attached.
+CodeSage uses tree-sitter to parse the AST and chunk by actual code units. Every retrieved chunk is a complete function or class with its file path and line numbers. The LLM is grounded in real code — it can't invent file names or make up APIs.
 
 ---
 
 ## What I learned building this
 
-1. **LLMs and LLM APIs** — tokens, context windows, prompt structure, grounding
+1. **LLMs and LLM APIs** — tokens, context windows, prompt engineering, grounding
 2. **Embeddings** — how text becomes vectors, why similar meaning = similar numbers
 3. **Vector search** — cosine similarity, FAISS indexes, nearest neighbour search
-4. **Code parsing** — ASTs, tree-sitter, chunking by semantic unit vs word count
+4. **AST parsing** — tree-sitter, abstract syntax trees, chunking by semantic unit
 5. **RAG pipeline** — how retrieval + generation work together end to end
-
----
-
-## Contributing
-
-This is a learning project — PRs, issues, and suggestions welcome.
+6. **FastAPI** — async endpoints, Pydantic models, background tasks, CORS
+7. **React + Tailwind** — component architecture, useState, useEffect, axios
 
 ---
 
