@@ -5,6 +5,18 @@ import ReactMarkdown from "react-markdown";
 
 const API = "http://localhost:8000";
 
+// ─── Utilities ───────────────────────────────────────────────────────────────
+function downloadReview(content, indexName, focus) {
+    const text = `# CodeSage Review — ${indexName}\nFocus: ${focus}\nDate: ${new Date().toLocaleDateString()}\n\n${content}`;
+    const blob = new Blob([text], { type: "text/markdown" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `review-${indexName}-${focus}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
 // ─── Source chunk card ───────────────────────────────────────────────────────
 function SourceCard({ chunk, index }) {
   const [open, setOpen] = useState(false);
@@ -82,6 +94,14 @@ function Message({ msg }) {
         </ReactMarkdown>
       </div>
 
+      {msg.isReview && (
+        <button
+            onClick={() => downloadReview(msg.content, msg.reviewMeta.indexName, msg.reviewMeta.focus)}
+            className="mt-3 text-xs text-purple-400 border border-purple-700 rounded px-3 py-1 hover:border-purple-400 transition-colors cursor-pointer bg-transparent font-mono"
+        >
+            ↓ download review
+        </button>
+    )}
       {msg.sources?.length > 0 && (
         <div className="mt-3">
           <button
@@ -220,6 +240,8 @@ async function handleReview() {
             role: "assistant",
             content: res.data.issues,
             sources: [],
+            isReview: true,
+            reviewMeta: { indexName: activeIndex, focus: reviewFocus },
         }]);
     } catch (e) {
         addSystemMsg("❌ Review failed: " + (e.response?.data?.detail || e.message));
@@ -307,9 +329,7 @@ async function handleReview() {
           RAG · FAISS · Groq · Llama 3.3
         </div>
 
-        <div className="px-5 py-3 border-t border-gray-700 text-xs text-gray-600">
-          RAG · FAISS · Groq · Llama 3.3
-        </div>
+        
       </div>
 
       {/* Main */}
