@@ -31,7 +31,19 @@ function SourceCard({ chunk, index }) {
       >
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-xs px-2 py-0.5 rounded bg-blue-900 text-blue-300 border border-blue-700">#{index + 1}</span>
-          <span className="text-xs font-semibold text-blue-400">{path}</span>
+          {chunk.github_url ? (
+              
+                <a href={chunk.github_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs font-semibold text-blue-400 hover:text-blue-300 hover:underline"
+                  onClick={e => e.stopPropagation()}
+              >
+                  {path} ↗
+              </a>
+          ) : (
+              <span className="text-xs font-semibold text-blue-400">{path}</span>
+          )}
           <span className="text-xs text-gray-500">:{chunk.start_line}–{chunk.end_line}</span>
           <span className="text-xs px-2 py-0.5 rounded bg-gray-800 text-gray-400 border border-gray-700">{chunk.type}: {chunk.name}</span>
         </div>
