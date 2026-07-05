@@ -92,6 +92,19 @@ class CodeSagePipeline:
         """Save file hashes to disk alongside the index."""
         hash_path = Path(self.index_dir) / f"{name}.hashes.json"
         hash_path.write_text(json.dumps(hashes, indent=2))
+
+    def _save_repo_url(self, name: str, repo_url: str):
+        """Save the GitHub URL for this index so we can construct file links later."""
+        url_path = Path(self.index_dir) / f"{name}.url"
+        url_path.write_text(repo_url.strip())
+
+    def _load_repo_url(self, name: str) -> str | None:
+        """Load the saved GitHub URL for an index. Returns None if not saved."""
+        url_path = Path(self.index_dir) / f"{name}.url"
+        if url_path.exists():
+            return url_path.read_text().strip()
+        return None
+
     def index(self, repo_url: str, name: str = None, force: bool = False) -> VectorStore:
         """
         Clone a repo, parse it, embed all chunks, and save the FAISS index.
@@ -173,6 +186,8 @@ class CodeSagePipeline:
         print("Step 4/4: Building and saving FAISS index...")
         t = time.time()
         store.build(chunks, vectors)
+        # Save repo URL so we can construct GitHub links later
+        self._save_repo_url(name, repo_url)
         print(f"  Done in {time.time()-t:.1f}s\n")
 
         # Clean up cloned temp dir if it was a GitHub URL

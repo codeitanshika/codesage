@@ -245,6 +245,19 @@ def index_repo(request: IndexRequest, background_tasks: BackgroundTasks):
         message=f"Indexing '{repo_url}' in background. Poll GET /status/{index_name} for progress.",
     )
 
+@app.get("/repo-info/{index_name}")
+def get_repo_info(index_name: str):
+    """
+    Returns the GitHub URL stored for this index.
+    Used by the frontend to construct clickable GitHub links.
+    """
+    repo_url = pipe._load_repo_url(index_name)
+    return {
+        "index_name": index_name,
+        "repo_url": repo_url,
+        "has_url": repo_url is not None,
+    }
+
 
 @app.post("/ask", response_model=AskResponse)
 def ask_question(request: AskRequest):
