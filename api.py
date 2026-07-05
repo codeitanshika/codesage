@@ -39,7 +39,20 @@ from pydantic import BaseModel
 
 from pipeline import CodeSagePipeline
 
-
+def build_github_url(repo_url: str, rel_path: str, line: int = None) -> str | None:
+    """
+    Construct a GitHub link to a specific file and line.
+    Returns None if repo_url is not a GitHub URL.
+    """
+    if not repo_url or "github.com" not in repo_url:
+        return None
+    # Normalize path separators (Windows uses backslashes)
+    rel_path = rel_path.replace("\\", "/")
+    base = repo_url.rstrip("/")
+    url = f"{base}/blob/main/{rel_path}"
+    if line:
+        url += f"#L{line}"
+    return url
 # ---------------------------------------------------------------------------
 # App setup
 # ---------------------------------------------------------------------------
@@ -100,6 +113,7 @@ class SourceChunk(BaseModel):
     start_line: int
     end_line: int
     content: str            # the actual code — shown highlighted in the UI
+    github_url: str | None = None
 
 class AskResponse(BaseModel):
     """What we send back after answering a question."""
@@ -313,6 +327,7 @@ def ask_question(request: AskRequest):
     )
 
     # Build source chunks for the frontend to display as cards
+    repo_url = pipe._load_repo_url(request.index_name) or ""
     sources = [
         SourceChunk(
             score=r["score"],
@@ -322,6 +337,7 @@ def ask_question(request: AskRequest):
             start_line=r["start_line"],
             end_line=r["end_line"],
             content=r["content"],
+            github_url=build_github_url(repo_url, r["rel_path"], r["start_line"]),
         )
         for r in results
     ]
@@ -374,7 +390,23 @@ def ask_multi(request: AskMultiRequest):
         history=request.history,
     )
 
-    sources = [SourceChunk(**{k: v for k, v in r.items() if k != "repo"}) for r in top_results]
+    sources = [
+        SourceChunk(
+            score=r["score"],
+            rel_path=r["rel_path"],
+            name=r["name"],
+            type=r["type"],
+            start_line=r["start_line"],
+            end_line=r["end_line"],
+            content=r["content"],
+            github_url=build_github_url(
+                pipe._load_repo_url(r.get("repo", "")) or "",
+                r["rel_path"],
+                r["start_line"]
+            ),
+        )
+        for r in top_results
+    ]
 
     return AskResponse(
         answer=answer,
