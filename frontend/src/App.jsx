@@ -130,6 +130,162 @@ function Message({ msg }) {
     </div>
   );
 }
+// ─── Review Panel ─────────────────────────────────────────────────────────────
+const SEVERITY_STYLE = {
+  high:   "bg-red-900 text-red-300 border-red-700",
+  medium: "bg-yellow-900 text-yellow-300 border-yellow-700",
+  low:    "bg-green-900 text-green-300 border-green-700",
+};
+
+const CATEGORY_TABS = ["all", "security", "performance", "code_quality", "error_handling", "setup"];
+
+function ReviewPanel({ data, onClose, onAsk, indexName }) {
+  const [activeTab, setActiveTab] = useState("all");
+  const [copied, setCopied] = useState(null);
+
+  const issues = data?.issues || [];
+  const filtered = activeTab === "all"
+    ? issues
+    : issues.filter(i => i.category === activeTab);
+
+  function copyFix(fix, idx) {
+    navigator.clipboard.writeText(fix);
+    setCopied(idx);
+    setTimeout(() => setCopied(null), 2000);
+  }
+
+  return (
+    <div className="flex-1 overflow-y-auto px-6 py-6 flex flex-col gap-4">
+
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <div className="text-xs text-gray-500 uppercase tracking-widest mb-1">Code Review</div>
+          <div className="text-lg font-bold text-purple-400">{indexName} — {data.focus}</div>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => downloadReview(
+              issues.map(i => `### ${i.title}\n**File:** ${i.file}:${i.line_start}\n**Severity:** ${i.severity}\n\n${i.what}\n\n**Fix:**\n\`\`\`\n${i.suggested_fix}\n\`\`\``).join("\n\n---\n\n"),
+              indexName, data.focus
+            )}
+            className="text-xs text-purple-400 border border-purple-700 rounded px-3 py-1 hover:border-purple-400 cursor-pointer bg-transparent"
+          >
+            ↓ export
+          </button>
+          <button
+            onClick={onClose}
+            className="text-xs text-gray-500 border border-gray-600 rounded px-3 py-1 hover:border-gray-400 cursor-pointer bg-transparent"
+          >
+            ✕ close
+          </button>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-2 flex-wrap">
+        {CATEGORY_TABS.map(tab => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`text-xs px-3 py-1 rounded border cursor-pointer transition-colors ${
+              activeTab === tab
+                ? "bg-purple-900 text-purple-300 border-purple-600"
+                : "text-gray-500 border-gray-700 hover:border-gray-500 bg-transparent"
+            }`}
+          >
+            {tab === "all" ? `all (${issues.length})` : tab.replace("_", " ")}
+          </button>
+        ))}
+      </div>
+
+      {/* Issue cards */}
+      {filtered.length === 0 && (
+        <div className="text-sm text-gray-500 text-center py-8">
+          No issues found in this category.
+        </div>
+      )}
+
+      {filtered.map((issue, idx) => (
+        <div key={idx} className="bg-gray-900 border border-gray-700 rounded-xl overflow-hidden">
+
+          {/* Card header */}
+          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-700">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className={`text-xs px-2 py-0.5 rounded border font-bold uppercase ${SEVERITY_STYLE[issue.severity] || SEVERITY_STYLE.low}`}>
+                {issue.severity}
+              </span>
+              <span className="text-sm font-semibold text-gray-100">{issue.title}</span>
+            </div>
+            <span className="text-xs text-gray-500 shrink-0">{issue.category?.replace("_", " ")}</span>
+          </div>
+
+          <div className="px-4 py-3 flex flex-col gap-3">
+
+            {/* File reference */}
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-500">📄</span>
+              <span className="text-xs text-blue-400 font-mono">
+                {issue.file}:{issue.line_start}
+              </span>
+            </div>
+
+            {/* What */}
+            <div>
+              <div className="text-xs text-gray-500 uppercase tracking-widest mb-1">What is the issue</div>
+              <p className="text-sm text-gray-300">{issue.what}</p>
+            </div>
+
+            {/* Why matters */}
+            <div>
+              <div className="text-xs text-gray-500 uppercase tracking-widest mb-1">Why it matters in this project</div>
+              <p className="text-sm text-yellow-200">{issue.why_matters}</p>
+            </div>
+
+            {/* Current code */}
+            <div>
+              <div className="text-xs text-red-400 uppercase tracking-widest mb-1">Current code</div>
+              <pre className="bg-gray-950 text-red-200 text-xs p-3 rounded-lg overflow-x-auto font-mono whitespace-pre-wrap">
+                {issue.current_code}
+              </pre>
+            </div>
+
+            {/* Suggested fix */}
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <div className="text-xs text-green-400 uppercase tracking-widest">Suggested fix</div>
+                <button
+                  onClick={() => copyFix(issue.suggested_fix, idx)}
+                  className="text-xs text-gray-500 hover:text-green-400 cursor-pointer bg-transparent border-none"
+                >
+                  {copied === idx ? "✓ copied" : "copy"}
+                </button>
+              </div>
+              <pre className="bg-gray-950 text-green-200 text-xs p-3 rounded-lg overflow-x-auto font-mono whitespace-pre-wrap">
+                {issue.suggested_fix}
+              </pre>
+            </div>
+
+            {/* How fix helps */}
+            <div>
+              <div className="text-xs text-gray-500 uppercase tracking-widest mb-1">How the fix helps</div>
+              <p className="text-sm text-green-300">{issue.how_fix_helps}</p>
+            </div>
+
+            {/* Ask about this */}
+            <button
+              onClick={() => onAsk(`Tell me more about the "${issue.title}" issue in ${issue.file}`)}
+              className="text-xs text-left text-gray-400 border border-gray-700 rounded px-3 py-2 hover:border-blue-500 hover:text-blue-400 transition-colors cursor-pointer bg-transparent"
+            >
+              💬 Ask CodeSage about this issue
+            </button>
+
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 // ─── Onboarding Report Panel ─────────────────────────────────────────────────
 function OnboardPanel({ report, onClose, onQuestion, indexName }) {
   const repoUrl = report.repo_url || "";
@@ -494,6 +650,8 @@ export default function App() {
             <span className="text-xs text-gray-500">Select or index a repo to start chatting</span>
           )}
         </div>
+
+        
 
         {showOnboard && onboardReport ? (
             <OnboardPanel
