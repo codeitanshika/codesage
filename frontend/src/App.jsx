@@ -256,6 +256,8 @@ export default function App() {
   const [onboardReport, setOnboardReport] = useState(null);
   const [onboarding, setOnboarding]       = useState(false);
   const [showOnboard, setShowOnboard]     = useState(false);
+  const [reviewData, setReviewData]     = useState(null);
+  const [showReview, setShowReview]     = useState(false);
 
   useEffect(() => { fetchIndexes(); }, []);
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
@@ -353,26 +355,22 @@ export default function App() {
         }
       }
   async function handleReview() {
-      if (!activeIndex || reviewing) return;
-      setReviewing(true);
-      addSystemMsg(`🔍 Reviewing ${activeIndex} (focus: ${reviewFocus})...`);
-      try {
-          const res = await axios.post(`${API}/review`, {
-              index_name: activeIndex,
-              focus: reviewFocus,
-          });
-          setMessages(prev => [...prev, {
-              role: "assistant",
-              content: res.data.issues,
-              sources: [],
-              isReview: true,
-              reviewMeta: { indexName: activeIndex, focus: reviewFocus },
-          }]);
-      } catch (e) {
-          addSystemMsg("❌ Review failed: " + (e.response?.data?.detail || e.message));
-      } finally {
-          setReviewing(false);
-      }
+    if (!activeIndex || reviewing) return;
+    setReviewing(true);
+    addSystemMsg(`🔍 Reviewing ${activeIndex} (focus: ${reviewFocus})...`);
+    try {
+        const res = await axios.post(`${API}/review`, {
+            index_name: activeIndex,
+            focus: reviewFocus,
+        });
+        setReviewData(res.data);
+        setShowReview(true);
+        setShowOnboard(false);
+    } catch (e) {
+        addSystemMsg("❌ Review failed: " + (e.response?.data?.detail || e.message));
+    } finally {
+        setReviewing(false);
+    }
   }
 
   async function fetchOnboard(name) {
