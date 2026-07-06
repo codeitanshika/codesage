@@ -421,7 +421,7 @@ class ReviewRequest(BaseModel):
     focus: str = "general"  # "general", "security", "performance", "error-handling"
 
 class ReviewResponse(BaseModel):
-    issues: str
+    issues: list[dict]
     index_name: str
     focus: str
 
@@ -459,28 +459,38 @@ def review_code(request: ReviewRequest):
         for r in results
     ])
 
-    review_prompt = f"""You are a senior software engineer doing a code review.
+    review_prompt = review_prompt = f"""You are a senior software engineer doing a code review.
 
 Focus area: {request.focus.upper()}
 
-Review the following code chunks and identify REAL issues — not nitpicks.
+Review the following code chunks and identify REAL issues.
 
 {context}
 
-For each issue found:
-1. State the problem in one line
-2. Show the exact file and line: `filename.py:line`
-3. Show the problematic code (brief)
-4. Show the fix with corrected code
+Respond with ONLY valid JSON, no markdown, no backticks:
+{{
+  "issues": [
+    {{
+      "title": "short issue title",
+      "severity": "high|medium|low",
+      "category": "security|performance|code_quality|error_handling|setup|understanding",
+      "file": "path/to/file.py",
+      "line_start": 10,
+      "line_end": 20,
+      "what": "one sentence: what is the problem",
+      "why_matters": "one sentence: why this matters specifically in this project",
+      "current_code": "the problematic code snippet",
+      "suggested_fix": "the corrected code",
+      "how_fix_helps": "one sentence: how the fix improves things"
+    }}
+  ]
+}}
 
-Format each issue as:
-### Issue N: <short title>
-**File:** `path/to/file.py:line`
-**Problem:** one sentence
-**Suggested fix:**
-**Current code:**
-If no real issues found in a category, say so honestly.
-Maximum 5 issues. Be specific, not generic."""
+Rules:
+- Maximum 5 issues
+- Only real issues, not nitpicks
+- Be specific to this codebase, not generic advice
+- Pure JSON only, no other text"""
 
     response = pipe.generator.client.chat.completions.create(
         model="llama-3.3-70b-versatile",
@@ -491,8 +501,20 @@ Maximum 5 issues. Be specific, not generic."""
         temperature=0.1,
     )
 
+    raw = response.choices[0].message.content.strip()
+    if raw.startswith("```"):
+        raw = raw.split("```")[1]
+        if raw.startswith("json"):
+            raw = raw[4:]
+    raw = raw.strip()
+
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=500, detail="LLM returned invalid JSON. Try again.")
+
     return ReviewResponse(
-        issues=response.choices[0].message.content,
+        issues=data.get("issues", []),
         index_name=request.index_name,
         focus=request.focus,
     )
