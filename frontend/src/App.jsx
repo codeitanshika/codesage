@@ -653,7 +653,17 @@ export default function App() {
 
         
 
-        {showOnboard && onboardReport ? (
+        {showReview && reviewData ? (
+            <ReviewPanel
+                data={reviewData}
+                indexName={activeIndex}
+                onClose={() => setShowReview(false)}
+                onAsk={(q) => {
+                    setShowReview(false);
+                    setInput(q);
+                }}
+            />
+        ) : showOnboard && onboardReport ? (
             <OnboardPanel
                 report={onboardReport}
                 indexName={activeIndex}
@@ -664,38 +674,27 @@ export default function App() {
                 }}
             />
         ) : (
-        <div className="flex-1 overflow-y-auto px-6 py-6 flex flex-col gap-5">
-            {messages.length === 0 && (
-                <div className="flex-1 flex flex-col items-center justify-center text-center gap-4 text-gray-500">
-                    <div className="text-5xl">⚡</div>
-                    <span className="text-xs text-gray-500">— ask anything about this codebase</span>
-                        {onboardReport && !showOnboard && (
-                            <button
-                                onClick={() => setShowOnboard(true)}
-                                className="text-xs px-3 py-1 rounded border border-gray-600 text-gray-400 hover:border-blue-400 hover:text-blue-400 transition-colors cursor-pointer bg-transparent ml-2"
-                            >
-                                📋 onboarding
-                            </button>
-                        )}
-                        {onboarding && (
-                            <span className="text-xs text-gray-500 ml-2">Loading onboarding report...</span>
-                        )}
-                    <div className="text-sm max-w-md leading-relaxed">
-                        Index a GitHub repo on the left, then ask:<br />
-                        <span className="text-blue-400">"How does the diagnosis agent work?"</span><br />
-                        <span className="text-blue-400">"Where is authentication handled?"</span>
+            <div className="flex-1 overflow-y-auto px-6 py-6 flex flex-col gap-5">
+                {messages.length === 0 && (
+                    <div className="flex-1 flex flex-col items-center justify-center text-center gap-4 text-gray-500">
+                        <div className="text-5xl">⚡</div>
+                        <div className="text-lg font-semibold text-gray-300">Ask anything about your codebase</div>
+                        <div className="text-sm max-w-md leading-relaxed">
+                            Index a GitHub repo on the left, then ask:<br />
+                            <span className="text-blue-400">"How does the diagnosis agent work?"</span><br />
+                            <span className="text-blue-400">"Where is authentication handled?"</span>
+                        </div>
                     </div>
-                </div>
-            )}
-            {messages.map((msg, i) => <Message key={i} msg={msg} />)}
-            {loading && (
-                <div className="self-start bg-gray-800 border border-gray-700 rounded-tr-xl rounded-br-xl rounded-bl-xl px-4 py-3 text-sm text-gray-400">
-                    Searching codebase and generating answer...
-                </div>
-            )}
-            <div ref={bottomRef} />
-        </div>
-    )}
+                )}
+                {messages.map((msg, i) => <Message key={i} msg={msg} />)}
+                {loading && (
+                    <div className="self-start bg-gray-800 border border-gray-700 rounded-tr-xl rounded-br-xl rounded-bl-xl px-4 py-3 text-sm text-gray-400">
+                        Searching codebase and generating answer...
+                    </div>
+                )}
+                <div ref={bottomRef} />
+            </div>
+        )}
 
         <div className="px-6 py-4 border-t border-gray-700 bg-gray-900 flex gap-3">
           <input
