@@ -130,6 +130,113 @@ function Message({ msg }) {
     </div>
   );
 }
+// ─── Onboarding Report Panel ─────────────────────────────────────────────────
+function OnboardPanel({ report, onClose, onQuestion, indexName }) {
+  const repoUrl = report.repo_url || "";
+
+  return (
+    <div className="flex-1 overflow-y-auto px-6 py-6 flex flex-col gap-6">
+
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <div className="text-xs text-gray-500 uppercase tracking-widest mb-1">Onboarding Report</div>
+          <div className="text-lg font-bold text-blue-400">{indexName}</div>
+        </div>
+        <button
+          onClick={onClose}
+          className="text-xs text-gray-500 border border-gray-600 rounded px-3 py-1 hover:border-gray-400 cursor-pointer bg-transparent"
+        >
+          Start chatting →
+        </button>
+      </div>
+
+      {/* What it does */}
+      <div className="bg-gray-900 border border-gray-700 rounded-xl p-5">
+        <div className="text-xs text-blue-400 uppercase tracking-widest mb-2">What this project does</div>
+        <p className="text-sm text-gray-200 leading-relaxed">{report.what_it_does}</p>
+      </div>
+
+      {/* Architecture */}
+      <div className="bg-gray-900 border border-gray-700 rounded-xl p-5">
+        <div className="text-xs text-blue-400 uppercase tracking-widest mb-2">Architecture</div>
+        <p className="text-sm text-gray-300 leading-relaxed">{report.architecture}</p>
+      </div>
+
+      {/* How to run */}
+      <div className="bg-gray-900 border border-gray-700 rounded-xl p-5">
+        <div className="text-xs text-blue-400 uppercase tracking-widest mb-3">How to run</div>
+        <div className="flex flex-col gap-2">
+          {report.how_to_run.map((step, i) => (
+            <div key={i} className="flex gap-3 items-start">
+              <span className="text-xs px-2 py-0.5 rounded bg-blue-900 text-blue-300 border border-blue-700 shrink-0 mt-0.5">
+                {i + 1}
+              </span>
+              <span className="text-sm text-gray-300">{step.replace(/^Step \d+:\s*/, "")}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Key files */}
+      <div className="bg-gray-900 border border-gray-700 rounded-xl p-5">
+        <div className="text-xs text-blue-400 uppercase tracking-widest mb-3">Key files to read first</div>
+        <div className="flex flex-col gap-2">
+          {report.key_files.map((kf, i) => (
+            <div key={i} className="flex gap-3 items-start p-3 bg-gray-950 rounded-lg border border-gray-700">
+              <span className="text-xs text-blue-400 font-semibold shrink-0 mt-0.5">📄</span>
+              <div>
+                <div className="text-xs font-semibold text-blue-400 mb-0.5">
+                  {kf.file}
+                </div>
+                <div className="text-xs text-gray-400">{kf.why}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Gotchas */}
+      <div className="bg-gray-900 border border-gray-700 rounded-xl p-5">
+        <div className="text-xs text-yellow-500 uppercase tracking-widest mb-3">⚠ Gotchas for new contributors</div>
+        <div className="flex flex-col gap-2">
+          {report.gotchas.map((g, i) => (
+            <div key={i} className="flex gap-3 items-start p-3 bg-yellow-950 rounded-lg border border-yellow-800">
+              <span className="text-yellow-500 text-xs shrink-0 mt-0.5">!</span>
+              <span className="text-xs text-yellow-200">{g.replace(/^Gotcha \d+:\s*/, "")}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Suggested questions */}
+      <div className="bg-gray-900 border border-gray-700 rounded-xl p-5">
+        <div className="text-xs text-green-400 uppercase tracking-widest mb-3">Suggested questions to ask</div>
+        <div className="flex flex-col gap-2">
+          {report.suggested_questions.map((q, i) => (
+            <button
+              key={i}
+              onClick={() => onQuestion(q)}
+              className="text-left text-xs text-gray-300 p-3 bg-gray-950 rounded-lg border border-gray-700 hover:border-green-600 hover:text-green-300 transition-colors cursor-pointer"
+            >
+              {q}
+            </button>
+          ))}
+        </div>
+        <div className="text-xs text-gray-600 mt-3">Click any question to send it to chat</div>
+      </div>
+
+      {/* Start chatting button */}
+      <button
+        onClick={onClose}
+        className="w-full bg-blue-500 hover:bg-blue-400 text-gray-950 font-bold text-sm py-3 rounded-xl transition-colors cursor-pointer"
+      >
+        Start chatting about this codebase →
+      </button>
+
+    </div>
+  );
+}
 
 // ─── Main app ────────────────────────────────────────────────────────────────
 export default function App() {
@@ -146,6 +253,9 @@ export default function App() {
   const [reviewMode, setReviewMode]   = useState(false);
   const [reviewFocus, setReviewFocus] = useState("general");
   const [reviewing, setReviewing]     = useState(false);
+  const [onboardReport, setOnboardReport] = useState(null);
+  const [onboarding, setOnboarding]       = useState(false);
+  const [showOnboard, setShowOnboard]     = useState(false);
 
   useEffect(() => { fetchIndexes(); }, []);
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
@@ -159,7 +269,10 @@ export default function App() {
 
   function selectIndex(name) {
     setActiveIndex(name);
+    setShowOnboard(false);
+    setOnboardReport(null);
     setMessages([{ role: "system", content: `Switched to: ${name}` }]);
+    fetchOnboard(name);
   }
 
   function addSystemMsg(content) {
@@ -226,41 +339,55 @@ export default function App() {
     .map(m => ({ role: m.role, content: m.content }))
     .slice(-6);
 
-const endpoint = multiMode ? `${API}/ask-multi` : `${API}/ask`;
-const payload = multiMode
-    ? { question, index_names: indexes, top_k: 3, history }
-    : { question, index_name: activeIndex, top_k: 5, history };
+    const endpoint = multiMode ? `${API}/ask-multi` : `${API}/ask`;
+    const payload = multiMode
+        ? { question, index_names: indexes, top_k: 3, history }
+        : { question, index_name: activeIndex, top_k: 5, history };
 
-const res = await axios.post(endpoint, payload);
-      setMessages(prev => [...prev, { role: "assistant", content: res.data.answer, sources: res.data.sources }]);
+    const res = await axios.post(endpoint, payload);
+          setMessages(prev => [...prev, { role: "assistant", content: res.data.answer, sources: res.data.sources }]);
+        } catch (e) {
+          setMessages(prev => [...prev, { role: "assistant", content: `❌ ${e.response?.data?.detail || "Something went wrong."}`, sources: [] }]);
+        } finally {
+          setLoading(false);
+        }
+      }
+  async function handleReview() {
+      if (!activeIndex || reviewing) return;
+      setReviewing(true);
+      addSystemMsg(`🔍 Reviewing ${activeIndex} (focus: ${reviewFocus})...`);
+      try {
+          const res = await axios.post(`${API}/review`, {
+              index_name: activeIndex,
+              focus: reviewFocus,
+          });
+          setMessages(prev => [...prev, {
+              role: "assistant",
+              content: res.data.issues,
+              sources: [],
+              isReview: true,
+              reviewMeta: { indexName: activeIndex, focus: reviewFocus },
+          }]);
+      } catch (e) {
+          addSystemMsg("❌ Review failed: " + (e.response?.data?.detail || e.message));
+      } finally {
+          setReviewing(false);
+      }
+  }
+
+  async function fetchOnboard(name) {
+    setOnboarding(true);
+    try {
+        const res = await axios.post(`${API}/onboard`, { index_name: name });
+        setOnboardReport(res.data);
+        setShowOnboard(true);
     } catch (e) {
-      setMessages(prev => [...prev, { role: "assistant", content: `❌ ${e.response?.data?.detail || "Something went wrong."}`, sources: [] }]);
+        console.error("Onboard failed:", e);
     } finally {
-      setLoading(false);
+        setOnboarding(false);
     }
   }
-async function handleReview() {
-    if (!activeIndex || reviewing) return;
-    setReviewing(true);
-    addSystemMsg(`🔍 Reviewing ${activeIndex} (focus: ${reviewFocus})...`);
-    try {
-        const res = await axios.post(`${API}/review`, {
-            index_name: activeIndex,
-            focus: reviewFocus,
-        });
-        setMessages(prev => [...prev, {
-            role: "assistant",
-            content: res.data.issues,
-            sources: [],
-            isReview: true,
-            reviewMeta: { indexName: activeIndex, focus: reviewFocus },
-        }]);
-    } catch (e) {
-        addSystemMsg("❌ Review failed: " + (e.response?.data?.detail || e.message));
-    } finally {
-        setReviewing(false);
-    }
-}
+
   function handleKey(e) {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleAsk(); }
   }
@@ -370,26 +497,49 @@ async function handleReview() {
           )}
         </div>
 
+        {showOnboard && onboardReport ? (
+            <OnboardPanel
+                report={onboardReport}
+                indexName={activeIndex}
+                onClose={() => setShowOnboard(false)}
+                onQuestion={(q) => {
+                    setShowOnboard(false);
+                    setInput(q);
+                }}
+            />
+        ) : (
         <div className="flex-1 overflow-y-auto px-6 py-6 flex flex-col gap-5">
-          {messages.length === 0 && (
-            <div className="flex-1 flex flex-col items-center justify-center text-center gap-4 text-gray-500">
-              <div className="text-5xl">⚡</div>
-              <div className="text-lg font-semibold text-gray-300">Ask anything about your codebase</div>
-              <div className="text-sm max-w-md leading-relaxed">
-                Index a GitHub repo on the left, then ask:<br />
-                <span className="text-blue-400">"How does the diagnosis agent work?"</span><br />
-                <span className="text-blue-400">"Where is authentication handled?"</span>
-              </div>
-            </div>
-          )}
-          {messages.map((msg, i) => <Message key={i} msg={msg} />)}
-          {loading && (
-            <div className="self-start bg-gray-800 border border-gray-700 rounded-tr-xl rounded-br-xl rounded-bl-xl px-4 py-3 text-sm text-gray-400">
-              Searching codebase and generating answer...
-            </div>
-          )}
-          <div ref={bottomRef} />
+            {messages.length === 0 && (
+                <div className="flex-1 flex flex-col items-center justify-center text-center gap-4 text-gray-500">
+                    <div className="text-5xl">⚡</div>
+                    <span className="text-xs text-gray-500">— ask anything about this codebase</span>
+                        {onboardReport && !showOnboard && (
+                            <button
+                                onClick={() => setShowOnboard(true)}
+                                className="text-xs px-3 py-1 rounded border border-gray-600 text-gray-400 hover:border-blue-400 hover:text-blue-400 transition-colors cursor-pointer bg-transparent ml-2"
+                            >
+                                📋 onboarding
+                            </button>
+                        )}
+                        {onboarding && (
+                            <span className="text-xs text-gray-500 ml-2">Loading onboarding report...</span>
+                        )}
+                    <div className="text-sm max-w-md leading-relaxed">
+                        Index a GitHub repo on the left, then ask:<br />
+                        <span className="text-blue-400">"How does the diagnosis agent work?"</span><br />
+                        <span className="text-blue-400">"Where is authentication handled?"</span>
+                    </div>
+                </div>
+            )}
+            {messages.map((msg, i) => <Message key={i} msg={msg} />)}
+            {loading && (
+                <div className="self-start bg-gray-800 border border-gray-700 rounded-tr-xl rounded-br-xl rounded-bl-xl px-4 py-3 text-sm text-gray-400">
+                    Searching codebase and generating answer...
+                </div>
+            )}
+            <div ref={bottomRef} />
         </div>
+    )}
 
         <div className="px-6 py-4 border-t border-gray-700 bg-gray-900 flex gap-3">
           <input
