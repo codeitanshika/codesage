@@ -529,6 +529,7 @@ export default function App() {
         });
         const repoUrl = await axios.get(`${API}/repo-info/${activeIndex}`);
         setReviewData({ ...res.data, repo_url: repoUrl.data.repo_url });
+        setShowReview(true);
         setShowOnboard(false);
     } catch (e) {
         addSystemMsg("❌ Review failed: " + (e.response?.data?.detail || e.message));
