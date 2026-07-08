@@ -448,7 +448,7 @@ def review_code(request: ReviewRequest):
 
     query = review_queries.get(request.focus, review_queries["general"])
     query_vec = pipe.embedder.embed_one(query)
-    results = store.search(query_vec, top_k=8)
+    results = store.search(query_vec, top_k=5)
 
     if not results:
         raise HTTPException(status_code=404, detail="No code found to review.")
@@ -556,7 +556,7 @@ def onboard_repo(request: OnboardRequest):
     all_chunks = []
     for query in queries:
         vec = pipe.embedder.embed_one(query)
-        results = store.search(vec, top_k=3)
+        results = store.search(vec, top_k=2)
         all_chunks.extend(results)
 
     # Deduplicate by rel_path
@@ -570,7 +570,7 @@ def onboard_repo(request: OnboardRequest):
     # Build context
     context = "\n\n".join([
         f"[{c['rel_path']}:{c['start_line']}-{c['end_line']}]\n{c['content']}"
-        for c in unique_chunks[:12]
+        for c in unique_chunks[:6]
     ])
 
     repo_url = pipe._load_repo_url(request.index_name) or ""
