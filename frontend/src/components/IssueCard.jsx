@@ -57,7 +57,7 @@ function CardBody({ issue, githubUrl, copied, onCopy, onAsk }) {
   const { file, line_start, what, why_matters, current_code, suggested_fix, how_fix_helps, title } = issue;
 
   return (
-    <div className={t.card.body}>
+    <div className={`${t.card.body} overflow-y-auto max-h-[500px]`}>
 
       <div className="flex items-center gap-2">
         <span className={t.text.muted}>📄</span>
