@@ -52,14 +52,25 @@ function HowToRun({ steps }) {
   );
 }
 
-function KeyFiles({ files }) {
+function KeyFiles({ files, repoUrl }) {
   return (
     <div className="flex flex-col gap-2 mt-2">
       {files.map((kf, i) => (
         <div key={i} className="flex gap-3 items-start p-3 bg-gray-950 rounded-lg border border-gray-700">
           <span className="text-xs text-blue-400 shrink-0 mt-0.5">📄</span>
           <div>
-            <div className="text-xs font-semibold text-blue-400 mb-0.5">{kf.file}</div>
+            {repoUrl ? (
+              
+               <a href={`${repoUrl}/blob/main/${kf.file.replace(/\\/g, "/")}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs font-semibold text-blue-400 hover:text-blue-300 hover:underline mb-0.5 block"
+              >
+                {kf.file} ↗
+              </a>
+            ) : (
+              <div className="text-xs font-semibold text-blue-400 mb-0.5">{kf.file}</div>
+            )}
             <div className={t.text.muted}>{kf.why}</div>
           </div>
         </div>
@@ -119,7 +130,7 @@ export default function OnboardPanel({ report, indexName, onClose, onQuestion })
       </Section>
 
       <Section title="Key files to read first">
-        <KeyFiles files={report.key_files} />
+        <KeyFiles files={report.key_files} repoUrl={report.repo_url} />
       </Section>
 
       <Section title="⚠ Gotchas for new contributors" colorClass={t.text.sectionYellow}>
