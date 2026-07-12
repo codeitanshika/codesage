@@ -530,6 +530,7 @@ class OnboardResponse(BaseModel):
     gotchas: list[str]
     suggested_questions: list[str]
     index_name: str
+    repo_url: str | None = None
 
 @app.post("/onboard", response_model=OnboardResponse)
 def onboard_repo(request: OnboardRequest):
@@ -641,6 +642,7 @@ Rules:
         gotchas=data.get("gotchas", []),
         suggested_questions=data.get("suggested_questions", []),
         index_name=request.index_name,
+        repo_url=pipe._load_repo_url(request.index_name),
     )
     
 # ---------------------------------------------------------------------------
