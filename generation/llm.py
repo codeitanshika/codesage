@@ -17,6 +17,8 @@ Usage:
 import os
 from groq import Groq
 
+from generation.prompts import CHAT_SYSTEM_PROMPT
+
 
 # Model to use — Llama 3.3 70B is Groq's best free model
 # Fast, smart, great at reading and explaining code
@@ -25,27 +27,6 @@ GROQ_MODEL = "llama-3.3-70b-versatile"
 # How many tokens the LLM can generate in its answer
 # 1024 is plenty for a detailed code explanation
 MAX_TOKENS = 1024
-
-# System prompt — tells the LLM its role and how to behave
-SYSTEM_PROMPT = """You are CodeSage, an expert code assistant that answers questions about software repositories.
-
-You are given:
-1. A question about a codebase
-2. Relevant code chunks retrieved from that codebase (with file paths and line numbers)
-
-Your answer style — CODE FIRST:
-- Lead with the most relevant code snippet from the chunks (use markdown code blocks)
-- Add a file reference immediately after: `filename.py:line_number`
-- Keep explanation SHORT — 2-3 sentences max per point
-- Use bullet points, not paragraphs
-- If multiple files are involved, show each one's key snippet
-- End with a one-line summary of the overall flow
-
-Rules:
-- Only use code from the provided chunks — never invent code
-- If chunks don't contain enough info, say so in one line
-- No long introductions, no "Based on the provided code chunks..."
-- Talk like a senior dev explaining to a teammate, not a textbook"""
 
 
 class LLMGenerator:
@@ -91,7 +72,7 @@ class LLMGenerator:
 
         context = self._format_chunks(top_chunks)
 
-        messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+        messages = [{"role": "system", "content": CHAT_SYSTEM_PROMPT}]
 
         if history:
             for turn in history:
@@ -144,67 +125,5 @@ Please answer based on the code chunks above, referencing specific files and lin
 
 
 # ---------------------------------------------------------------------------
-# Quick test — run directly:
-# python -m generation.llm
+# Manual smoke test moved to tests/test_llm.py — run: python tests/test_llm.py
 # ---------------------------------------------------------------------------
-if __name__ == "__main__":
-    # Simulate what retrieval would return
-    fake_chunks = [
-        {
-            "score": 0.821,
-            "content": (
-                "def login(username: str, password: str) -> User:\n"
-                "    user = db.get_user(username)\n"
-                "    if not user:\n"
-                "        raise HTTPException(status_code=404, detail='User not found')\n"
-                "    if not verify_password(password, user.hashed_password):\n"
-                "        raise HTTPException(status_code=401, detail='Wrong password')\n"
-                "    token = create_access_token(user.id)\n"
-                "    return {'access_token': token, 'user': user}"
-            ),
-            "rel_path": "app/auth/login.py",
-            "type": "function",
-            "name": "login",
-            "start_line": 10,
-            "end_line": 18,
-        },
-        {
-            "score": 0.743,
-            "content": (
-                "def verify_password(plain: str, hashed: str) -> bool:\n"
-                "    return bcrypt.checkpw(plain.encode(), hashed.encode())"
-            ),
-            "rel_path": "app/auth/utils.py",
-            "type": "function",
-            "name": "verify_password",
-            "start_line": 5,
-            "end_line": 7,
-        },
-        {
-            "score": 0.698,
-            "content": (
-                "def create_access_token(user_id: int) -> str:\n"
-                "    payload = {'sub': user_id, 'exp': datetime.utcnow() + timedelta(hours=24)}\n"
-                "    return jwt.encode(payload, SECRET_KEY, algorithm='HS256')"
-            ),
-            "rel_path": "app/auth/tokens.py",
-            "type": "function",
-            "name": "create_access_token",
-            "start_line": 12,
-            "end_line": 15,
-        },
-    ]
-
-    print("=== LLM Generation Test ===\n")
-    print("Sending question + code chunks to Groq...\n")
-
-    gen = LLMGenerator()
-    answer = gen.answer(
-        question="How does user authentication work? Walk me through the login flow.",
-        chunks=fake_chunks,
-    )
-
-    print("Answer:")
-    print("-" * 60)
-    print(answer)
-    print("-" * 60)

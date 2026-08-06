@@ -202,21 +202,5 @@ def cleanup_repo(repo_root: str) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Quick manual test — run this file directly to try it out:
-# python ingestion/clone.py
+# Manual smoke test moved to tests/test_clone.py — run: python tests/test_clone.py
 # ---------------------------------------------------------------------------
-if __name__ == "__main__":
-    import sys
-
-    # Default to a small, fast-to-clone repo for testing
-    test_url = sys.argv[1] if len(sys.argv) > 1 else "https://github.com/tiangolo/fastapi"
-
-    files, root = load_repo(test_url)
-
-    print(f"\nFirst 10 files:")
-    for f in files[:10]:
-        # Show path relative to repo root so it's readable
-        rel = os.path.relpath(f, root)
-        print(f"  {rel}")
-
-    print(f"\n...and {max(0, len(files) - 10)} more.")

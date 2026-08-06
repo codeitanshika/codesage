@@ -21,7 +21,7 @@ export const theme = {
   // ── Layout ────────────────────────────────────────────────────────────────
   layout: {
     root:     "flex h-screen bg-gray-950 text-gray-100 font-mono overflow-hidden",
-    main:     "flex flex-col flex-1 overflow-hidden",
+    main:     "flex flex-col flex-1 min-h-0",
     messages: "flex-1 overflow-y-auto px-6 py-6 flex flex-col gap-5",
   },
 

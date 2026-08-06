@@ -98,7 +98,18 @@ codesage/
 │
 ├── main.py                     # CLI entrypoint (index / ask / chat)
 ├── pipeline.py                 # Wires all modules together
-├── api.py                      # FastAPI backend (HTTP endpoints)
+│
+├── api/                        # FastAPI backend (HTTP endpoints)
+│   ├── __init__.py
+│   ├── app.py                  # FastAPI setup, CORS, route registration
+│   ├── deps.py                 # Shared pipeline instance + indexing job tracking
+│   ├── models.py                # All Pydantic request/response models
+│   └── routes/
+│       ├── __init__.py
+│       ├── index.py            # /index, /status, /indexes, /repo-info
+│       ├── query.py            # /ask, /ask-multi
+│       ├── review.py           # /review
+│       └── onboard.py          # /onboard
 │
 ├── ingestion/
 │   ├── __init__.py
@@ -112,7 +123,8 @@ codesage/
 │
 ├── generation/
 │   ├── __init__.py
-│   └── llm.py                  # Groq API: question + chunks → answer
+│   ├── llm.py                  # Groq API: question + chunks → answer
+│   └── prompts.py              # All LLM prompts (chat, review, onboard)
 │
 ├── indexes/                    # FAISS indexes saved here (gitignored)
 │   ├── my-repo.faiss
@@ -146,7 +158,7 @@ pip install -r requirements.txt
 echo GROQ_API_KEY=your_key_here > .env
 
 # 5. Start the backend
-uvicorn api:app --reload --port 8000
+uvicorn api.app:app --reload --port 8000
 
 # 6. In a new terminal, start the frontend
 cd frontend

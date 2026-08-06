@@ -17,9 +17,9 @@ const TABS = ["all", "security", "performance", "code_quality", "error_handling"
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
-function PanelHeader({ indexName, focus, issues, onExport, onClose }) {
+function PanelHeader({ indexName, focus, onExport, onClose }) {
   return (
-    <div className="flex items-center justify-between">
+    <div className="flex items-center justify-between shrink-0">
       <div>
         <div className={t.text.muted}>Code Review</div>
         <div className="text-lg font-bold text-purple-400">{indexName} — {focus}</div>
@@ -36,7 +36,7 @@ function PanelHeader({ indexName, focus, issues, onExport, onClose }) {
 
 function TabBar({ activeTab, issues, onSelect }) {
   return (
-    <div className="flex gap-2 flex-wrap">
+    <div className="flex gap-2 flex-wrap shrink-0">
       {TABS.map(tab => (
         <button
           key={tab}
@@ -52,7 +52,11 @@ function TabBar({ activeTab, issues, onSelect }) {
 
 function IssueList({ issues, copied, onCopy, onAsk, repoUrl }) {
   if (!issues.length) {
-    return <div className="text-sm text-gray-500 text-center py-8">No issues found in this category.</div>;
+    return (
+      <div className="text-sm text-gray-500 text-center py-8">
+        No issues found in this category.
+      </div>
+    );
   }
   return issues.map((issue, idx) => (
     <IssueCard
@@ -90,22 +94,28 @@ export default function ReviewPanel({ data, indexName, onClose, onAsk }) {
   }
 
   return (
-    <div className={t.panel.root}>
+    <div className="flex flex-col flex-1 min-h-0 px-6 py-6 gap-4">
+
       <PanelHeader
         indexName={indexName}
         focus={data.focus}
-        issues={issues}
         onExport={handleExport}
         onClose={onClose}
       />
+
       <TabBar activeTab={activeTab} issues={issues} onSelect={setActiveTab} />
-      <IssueList
-        issues={filtered}
-        copied={copied}
-        onCopy={handleCopy}
-        onAsk={onAsk}
-        repoUrl={data.repo_url}
-      />
+
+      {/* Scrollable issue list */}
+      <div className="flex flex-col gap-4 overflow-y-auto flex-1 pr-1">
+        <IssueList
+          issues={filtered}
+          copied={copied}
+          onCopy={handleCopy}
+          onAsk={onAsk}
+          repoUrl={data.repo_url}
+        />
+      </div>
+
     </div>
   );
 }

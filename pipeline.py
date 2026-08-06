@@ -254,40 +254,5 @@ class CodeSagePipeline:
 
 
 # ---------------------------------------------------------------------------
-# Quick test — run directly:
-# python pipeline.py
+# Manual smoke test moved to tests/test_pipeline.py — run: python tests/test_pipeline.py
 # ---------------------------------------------------------------------------
-if __name__ == "__main__":
-    import sys
-
-    pipe = CodeSagePipeline()
-
-    # Use a small repo for fast testing
-    # You can change this to any public GitHub repo
-    REPO_URL   = "https://github.com/karpathy/micrograd"
-    INDEX_NAME = "micrograd"
-
-    # --- Index the repo (skips if already done) ---
-    pipe.index(repo_url=REPO_URL, name=INDEX_NAME)
-
-    # --- Ask questions ---
-    questions = [
-    "How does backpropagation work?",
-    "How is a neuron implemented?",
-    "How does the Value class compute gradients?",
-]
-
-    print(f"\n{'='*50}")
-    print("  QUERY MODE")
-    print(f"{'='*50}")
-
-    for question in questions:
-        print(f"\n❓ Question: {question}\n")
-        answer = pipe.query(
-            question=question,
-            index_name=INDEX_NAME,
-            top_k=5,
-            show_sources=True,
-        )
-        print(f"💬 Answer:\n{answer}")
-        print("\n" + "-"*50)
