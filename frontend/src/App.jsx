@@ -9,10 +9,11 @@
 import { theme as t } from "./styles/theme";
 import useCodeSage from "./hooks/useCodeSage";
 
-import Sidebar       from "./components/Sidebar";
-import Message       from "./components/Message";
-import ReviewPanel   from "./components/ReviewPanel";
-import OnboardPanel  from "./components/OnboardPanel";
+import Sidebar         from "./components/Sidebar";
+import Message         from "./components/Message";
+import ReviewPanel     from "./components/ReviewPanel";
+import OnboardPanel    from "./components/OnboardPanel";
+import ContributePanel from "./components/ContributePanel";
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
@@ -104,6 +105,7 @@ function InputBar({ input, activeIndex, loading, onChange, onAsk, onKey }) {
 function MainPanel({ hook }) {
   const { showReview, reviewData, activeIndex, handleAskFromReview, setShowReview,
           showOnboard, onboardReport, setShowOnboard, handleSuggestedQuestion,
+          showContribute, contributeData, setShowContribute, handleAskFromContribute,
           messages, loading, bottomRef } = hook;
 
   if (showReview && reviewData) {
@@ -124,6 +126,17 @@ function MainPanel({ hook }) {
         indexName={activeIndex}
         onClose={() => setShowOnboard(false)}
         onQuestion={handleSuggestedQuestion}
+      />
+    );
+  }
+
+  if (showContribute && contributeData) {
+    return (
+      <ContributePanel
+        data={contributeData}
+        indexName={activeIndex}
+        onClose={() => setShowContribute(false)}
+        onAsk={handleAskFromContribute}
       />
     );
   }
@@ -152,6 +165,8 @@ export default function App() {
         reviewing={hook.reviewing}
         onReviewFocusChange={hook.setReviewFocus}
         onReview={hook.handleReview}
+        contributing={hook.contributing}
+        onContribute={hook.handleContribute}
       />
 
       <div className={t.layout.main}>
