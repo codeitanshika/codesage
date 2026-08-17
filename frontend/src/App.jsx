@@ -14,10 +14,11 @@ import Message         from "./components/Message";
 import ReviewPanel     from "./components/ReviewPanel";
 import OnboardPanel    from "./components/OnboardPanel";
 import ContributePanel from "./components/ContributePanel";
+import TabBar          from "./components/TabBar";
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
-function Header({ activeIndex, indexes, multiMode, onboarding, onboardReport, showOnboard, onToggleMulti, onShowOnboard }) {
+function Header({ activeIndex, indexes, multiMode, onToggleMulti }) {
   if (!activeIndex) {
     return (
       <div className={t.header.root}>
@@ -31,14 +32,6 @@ function Header({ activeIndex, indexes, multiMode, onboarding, onboardReport, sh
       <span className="text-sm font-semibold">{activeIndex}</span>
       <span className={t.text.muted}>— ask anything about this codebase</span>
 
-      {onboardReport && !showOnboard && (
-        <button onClick={onShowOnboard} className={`${t.button.close} ml-2`}>
-          📋 onboarding
-        </button>
-      )}
-      {onboarding && (
-        <span className={`${t.text.muted} ml-2`}>Loading onboarding report...</span>
-      )}
       {indexes.length > 1 && (
         <button
           onClick={onToggleMulti}
@@ -103,45 +96,44 @@ function InputBar({ input, activeIndex, loading, onChange, onAsk, onKey }) {
 }
 
 function MainPanel({ hook }) {
-  const { showReview, reviewData, activeIndex, handleAskFromReview, setShowReview,
-          showOnboard, onboardReport, setShowOnboard, handleSuggestedQuestion,
-          showContribute, contributeData, setShowContribute, handleAskFromContribute,
-          messages, loading, bottomRef, handleAskFromSource } = hook;
+  const { activeTab, setActiveTab, askAbout, activeIndex,
+          reviewData, onboardReport, contributeData,
+          messages, loading, bottomRef } = hook;
 
-  if (showReview && reviewData) {
+  if (activeTab === "review" && reviewData) {
     return (
       <ReviewPanel
         data={reviewData}
         indexName={activeIndex}
-        onClose={() => setShowReview(false)}
-        onAsk={handleAskFromReview}
+        onClose={() => setActiveTab("chat")}
+        onAsk={askAbout}
       />
     );
   }
 
-  if (showOnboard && onboardReport) {
+  if (activeTab === "onboard" && onboardReport) {
     return (
       <OnboardPanel
         report={onboardReport}
         indexName={activeIndex}
-        onClose={() => setShowOnboard(false)}
-        onQuestion={handleSuggestedQuestion}
+        onClose={() => setActiveTab("chat")}
+        onQuestion={askAbout}
       />
     );
   }
 
-  if (showContribute && contributeData) {
+  if (activeTab === "contribute" && contributeData) {
     return (
       <ContributePanel
         data={contributeData}
         indexName={activeIndex}
-        onClose={() => setShowContribute(false)}
-        onAsk={handleAskFromContribute}
+        onClose={() => setActiveTab("chat")}
+        onAsk={askAbout}
       />
     );
   }
 
-  return <ChatArea messages={messages} loading={loading} bottomRef={bottomRef} onAsk={handleAskFromSource} />;
+  return <ChatArea messages={messages} loading={loading} bottomRef={bottomRef} onAsk={askAbout} />;
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
@@ -174,12 +166,18 @@ export default function App() {
           activeIndex={hook.activeIndex}
           indexes={hook.indexes}
           multiMode={hook.multiMode}
-          onboarding={hook.onboarding}
-          onboardReport={hook.onboardReport}
-          showOnboard={hook.showOnboard}
           onToggleMulti={() => hook.setMultiMode(!hook.multiMode)}
-          onShowOnboard={() => hook.setShowOnboard(true)}
         />
+
+        {hook.activeIndex && (
+          <TabBar
+            activeTab={hook.activeTab}
+            onSelect={hook.setActiveTab}
+            onboarding={hook.onboarding}
+            reviewing={hook.reviewing}
+            contributing={hook.contributing}
+          />
+        )}
 
         <MainPanel hook={hook} />
 
