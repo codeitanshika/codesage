@@ -114,3 +114,41 @@ Rules:
 - gotchas: real things that would trip up a new contributor
 - suggested_questions: 5 questions that would help understand this codebase deeply
 - Respond with pure JSON only"""
+
+
+# ---------------------------------------------------------------------------
+# Contribution opportunities — used by /contribute
+# ---------------------------------------------------------------------------
+
+def build_contribute_prompt(context: str) -> str:
+    """Build the contribution-opportunities prompt for the retrieved context."""
+    return f"""You are helping a new open-source contributor find good first issues in this codebase.
+
+Analyze the following code chunks and identify REAL opportunities to contribute — bugs, missing tests, missing docs, TODOs, small refactors.
+
+{context}
+
+Respond with ONLY valid JSON, no markdown, no backticks:
+{{
+  "opportunities": [
+    {{
+      "title": "short opportunity title",
+      "difficulty": "good-first-issue|medium|advanced",
+      "category": "bug|missing-test|missing-docs|todo|refactor",
+      "file": "path/to/file.py",
+      "line_start": 10,
+      "line_end": 20,
+      "description": "one or two sentences: what's missing or wrong",
+      "suggested_approach": "one or two sentences: how a contributor would tackle this",
+      "draft_pr_title": "a ready-to-use PR title",
+      "draft_pr_description": "a short ready-to-use PR description",
+      "effort_estimate": "e.g. 15 min, 1-2 hours, half day"
+    }}
+  ]
+}}
+
+Rules:
+- Maximum 5 opportunities
+- Only real, actionable opportunities, not nitpicks
+- Be specific to this codebase, not generic advice
+- Pure JSON only, no other text"""
