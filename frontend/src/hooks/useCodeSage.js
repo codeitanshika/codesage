@@ -29,17 +29,18 @@ export default function useCodeSage() {
 
   const [multiMode, setMultiMode]       = useState(false);
 
+  // Which tab is showing: "chat" | "onboard" | "review" | "contribute".
+  // Switching tabs never loses data or re-fetches — it just changes what's visible.
+  const [activeTab, setActiveTab] = useState("chat");
+
   const [onboardReport, setOnboardReport] = useState(null);
-  const [showOnboard, setShowOnboard]     = useState(false);
   const [onboarding, setOnboarding]       = useState(false);
 
   const [reviewData, setReviewData]     = useState(null);
-  const [showReview, setShowReview]     = useState(false);
   const [reviewFocus, setReviewFocus]   = useState("general");
   const [reviewing, setReviewing]       = useState(false);
 
   const [contributeData, setContributeData] = useState(null);
-  const [showContribute, setShowContribute] = useState(false);
   const [contributing, setContributing]     = useState(false);
 
   const bottomRef = useRef(null);
@@ -69,12 +70,19 @@ export default function useCodeSage() {
 
   function selectIndex(name) {
     setActiveIndex(name);
-    setShowReview(false);
-    setShowOnboard(false);
-    setShowContribute(false);
+    setActiveTab("chat");
     setOnboardReport(null);
+    setReviewData(null);
+    setContributeData(null);
     setMessages([{ role: "system", content: `Switched to: ${name}` }]);
     loadOnboardReport(name);
+  }
+
+  // Pre-fill the chat input from any card's "ask about this" button and
+  // switch to the Chat tab — the originating panel's data is never lost.
+  function askAbout(q) {
+    setActiveTab("chat");
+    setInput(q);
   }
 
   // ── Indexing ─────────────────────────────────────────────────────────────────
@@ -172,17 +180,12 @@ export default function useCodeSage() {
     try {
       const data = await api.fetchOnboard(name);
       setOnboardReport(data);
-      setShowOnboard(true);
+      setActiveTab("onboard");
     } catch (e) {
       console.error("Onboard failed:", e);
     } finally {
       setOnboarding(false);
     }
-  }
-
-  function handleSuggestedQuestion(q) {
-    setShowOnboard(false);
-    setInput(q);
   }
 
   // ── Review ────────────────────────────────────────────────────────────────────
@@ -197,18 +200,12 @@ export default function useCodeSage() {
         api.fetchRepoInfo(activeIndex),
       ]);
       setReviewData({ ...reviewResult, repo_url: repoInfo.repo_url });
-      setShowReview(true);
-      setShowOnboard(false);
+      setActiveTab("review");
     } catch (e) {
       addSystemMsg("❌ Review failed: " + (e.response?.data?.detail || e.message));
     } finally {
       setReviewing(false);
     }
-  }
-
-  function handleAskFromReview(q) {
-    setShowReview(false);
-    setInput(q);
   }
 
   // ── Contribute ────────────────────────────────────────────────────────────────
@@ -223,25 +220,12 @@ export default function useCodeSage() {
         api.fetchRepoInfo(activeIndex),
       ]);
       setContributeData({ ...contributeResult, repo_url: repoInfo.repo_url });
-      setShowContribute(true);
-      setShowReview(false);
-      setShowOnboard(false);
+      setActiveTab("contribute");
     } catch (e) {
       addSystemMsg("❌ Contribution search failed: " + (e.response?.data?.detail || e.message));
     } finally {
       setContributing(false);
     }
-  }
-
-  function handleAskFromContribute(q) {
-    setShowContribute(false);
-    setInput(q);
-  }
-
-  // ── Source cards ──────────────────────────────────────────────────────────────
-
-  function handleAskFromSource(q) {
-    setInput(q);
   }
 
   // ── Return everything App needs ───────────────────────────────────────────────
@@ -267,17 +251,19 @@ export default function useCodeSage() {
     // Multi-repo
     multiMode, setMultiMode,
 
+    // Tabs
+    activeTab, setActiveTab, askAbout,
+
     // Onboarding
-    onboardReport, showOnboard, onboarding,
-    setShowOnboard, handleSuggestedQuestion,
+    onboardReport, onboarding,
 
     // Review
-    reviewData, showReview, reviewFocus,
+    reviewData, reviewFocus,
     reviewing, setReviewFocus,
-    setShowReview, handleReview, handleAskFromReview,
+    handleReview,
 
     // Contribute
-    contributeData, showContribute, contributing,
-    setShowContribute, handleContribute, handleAskFromContribute,
+    contributeData, contributing,
+    handleContribute,
   };
 }
