@@ -73,6 +73,32 @@ function ChatArea({ messages, loading, bottomRef, onAsk }) {
   );
 }
 
+function PanelSpinner({ label }) {
+  return (
+    <div className={t.emptyState.root}>
+      <span className={t.spinner} />
+      <div className={t.text.muted}>{label}</div>
+    </div>
+  );
+}
+
+function PanelEmptyState({ icon, title, body, ctaLabel, onCta, loading }) {
+  return (
+    <div className={t.emptyState.root}>
+      <div className="text-5xl">{icon}</div>
+      <div className={t.emptyState.title}>{title}</div>
+      <div className={t.emptyState.body}>{body}</div>
+      <button
+        onClick={onCta}
+        disabled={loading}
+        className="bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs px-6 py-2 rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
+      >
+        {loading ? "Working..." : ctaLabel}
+      </button>
+    </div>
+  );
+}
+
 function InputBar({ input, activeIndex, loading, onChange, onAsk, onKey }) {
   return (
     <div className={t.inputBar.root}>
@@ -97,38 +123,69 @@ function InputBar({ input, activeIndex, loading, onChange, onAsk, onKey }) {
 
 function MainPanel({ hook }) {
   const { activeTab, setActiveTab, askAbout, activeIndex,
-          reviewData, onboardReport, contributeData,
+          reviewData, reviewing, handleReview,
+          onboardReport,
+          contributeData, contributing, handleContribute,
           messages, loading, bottomRef } = hook;
 
-  if (activeTab === "review" && reviewData) {
+  if (activeTab === "review") {
+    if (reviewData) {
+      return (
+        <ReviewPanel
+          data={reviewData}
+          indexName={activeIndex}
+          onClose={() => setActiveTab("chat")}
+          onAsk={askAbout}
+        />
+      );
+    }
+    if (reviewing) return <PanelSpinner label="Reviewing the codebase..." />;
     return (
-      <ReviewPanel
-        data={reviewData}
-        indexName={activeIndex}
-        onClose={() => setActiveTab("chat")}
-        onAsk={askAbout}
+      <PanelEmptyState
+        icon="🔍"
+        title="No review yet"
+        body="Run a code review to surface real issues — with file references and suggested fixes."
+        ctaLabel="Run code review"
+        onCta={handleReview}
+        loading={reviewing}
       />
     );
   }
 
-  if (activeTab === "onboard" && onboardReport) {
-    return (
-      <OnboardPanel
-        report={onboardReport}
-        indexName={activeIndex}
-        onClose={() => setActiveTab("chat")}
-        onQuestion={askAbout}
-      />
-    );
+  if (activeTab === "onboard") {
+    if (onboardReport) {
+      return (
+        <OnboardPanel
+          report={onboardReport}
+          indexName={activeIndex}
+          onClose={() => setActiveTab("chat")}
+          onQuestion={askAbout}
+        />
+      );
+    }
+    return <PanelSpinner label="Generating onboarding report..." />;
   }
 
-  if (activeTab === "contribute" && contributeData) {
+  if (activeTab === "contribute") {
+    if (contributeData) {
+      return (
+        <ContributePanel
+          data={contributeData}
+          indexName={activeIndex}
+          onClose={() => setActiveTab("chat")}
+          onAsk={askAbout}
+        />
+      );
+    }
+    if (contributing) return <PanelSpinner label="Finding contribution opportunities..." />;
     return (
-      <ContributePanel
-        data={contributeData}
-        indexName={activeIndex}
-        onClose={() => setActiveTab("chat")}
-        onAsk={askAbout}
+      <PanelEmptyState
+        icon="🌱"
+        title="No opportunities found yet"
+        body="Scan this codebase for good first issues — with a draft PR title, description, and effort estimate for each."
+        ctaLabel="Find good first issues"
+        onCta={handleContribute}
+        loading={contributing}
       />
     );
   }
