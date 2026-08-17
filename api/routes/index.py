@@ -8,7 +8,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, BackgroundTasks
 
-from api.deps import get_indexing_jobs, get_pipeline
+from api.deps import get_indexing_jobs, get_pipeline, get_store, invalidate_store
 from api.models import IndexRequest, IndexResponse, StatusResponse
 
 router = APIRouter()
@@ -34,8 +34,6 @@ def get_status(index_name: str):
     1. After submitting a repo URL — to show a loading spinner while indexing
     2. On page load — to restore the last used index
     """
-    from embedding.store import VectorStore
-
     jobs = get_indexing_jobs()
 
     # Check if there's an active indexing job for this name
@@ -47,9 +45,8 @@ def get_status(index_name: str):
             status=job["status"],
         )
 
-    store = VectorStore(name=index_name)
-    if store.exists():
-        store.load()
+    store = get_store(index_name)
+    if store:
         return StatusResponse(
             index_name=index_name,
             exists=True,
@@ -100,8 +97,6 @@ def index_repo(request: IndexRequest, background_tasks: BackgroundTasks):
     We run it in a background thread so the API doesn't hang.
     The frontend polls GET /status/{name} to check progress.
     """
-    from embedding.store import VectorStore
-
     pipe = get_pipeline()
     jobs = get_indexing_jobs()
 
@@ -109,14 +104,12 @@ def index_repo(request: IndexRequest, background_tasks: BackgroundTasks):
     index_name = request.name or _name_from_url(repo_url)
 
     # If already indexed and not forcing, return immediately
-    if not request.force:
-        store = VectorStore(name=index_name)
-        if store.exists():
-            return IndexResponse(
-                index_name=index_name,
-                status="already_exists",
-                message=f"Index '{index_name}' already exists. Use force=true to re-index.",
-            )
+    if not request.force and get_store(index_name):
+        return IndexResponse(
+            index_name=index_name,
+            status="already_exists",
+            message=f"Index '{index_name}' already exists. Use force=true to re-index.",
+        )
 
     # Mark as indexing
     jobs[index_name] = {"status": "indexing", "message": "Starting..."}
@@ -126,6 +119,7 @@ def index_repo(request: IndexRequest, background_tasks: BackgroundTasks):
         try:
             jobs[index_name]["message"] = "Cloning repo..."
             pipe.index(repo_url=repo_url, name=index_name, force=request.force)
+            invalidate_store(index_name)  # force fresh load next time it's fetched
             jobs[index_name] = {"status": "done", "message": "Indexing complete."}
         except Exception as e:
             jobs[index_name] = {"status": "error", "message": str(e)}
