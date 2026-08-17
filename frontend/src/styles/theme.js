@@ -142,6 +142,17 @@ export const theme = {
     subtitle: "text-xs text-gray-500 uppercase tracking-widest mb-1",
   },
 
+  // ── Tabs (top-level nav — Chat / Onboard / Review / Contribute) ───────────
+  tabs: {
+    bar: "flex gap-1 px-6 border-b border-gray-700 bg-gray-900 shrink-0",
+    tab: (active) =>
+      `px-4 py-3 text-sm font-medium cursor-pointer border-b-2 transition-colors ${
+        active
+          ? "text-blue-400 border-blue-400"
+          : "text-gray-500 border-transparent hover:text-gray-300 hover:border-gray-600"
+      }`,
+  },
+
   // ── Input bar (bottom of chat) ────────────────────────────────────────────
   inputBar: {
     root: "px-6 py-4 border-t border-gray-700 bg-gray-900 flex gap-3",
