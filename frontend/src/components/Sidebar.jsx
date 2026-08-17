@@ -31,10 +31,11 @@ function RepoIndexer({ repoUrl, indexing, indexMsg, onChange, onSubmit }) {
         onKeyDown={(e) => e.key === "Enter" && onSubmit()}
       />
       <button
-        className={`mt-2 ${t.button.indexItem}`}
+        className={`mt-2 ${t.button.indexItem} flex items-center justify-center gap-2`}
         onClick={onSubmit}
         disabled={indexing}
       >
+        {indexing && <span className={t.spinner} />}
         {indexing ? indexMsg : "Index repo"}
       </button>
       {indexMsg && !indexing && (
@@ -80,10 +81,11 @@ function CodeReview({ activeIndex, reviewFocus, reviewing, onFocusChange, onRevi
         <option value="error-handling">Error Handling</option>
       </select>
       <button
-        className={t.button.purple}
+        className={`${t.button.purple} flex items-center justify-center gap-2`}
         onClick={onReview}
         disabled={reviewing}
       >
+        {reviewing && <span className={t.spinner} />}
         {reviewing ? "Reviewing..." : "Review Code"}
       </button>
     </div>
@@ -96,10 +98,11 @@ function Contribute({ activeIndex, contributing, onContribute }) {
     <div className={t.sidebar.section}>
       <div className={t.sidebar.label}>Contribute</div>
       <button
-        className={t.button.purple}
+        className={`${t.button.purple} flex items-center justify-center gap-2`}
         onClick={onContribute}
         disabled={contributing}
       >
+        {contributing && <span className={t.spinner} />}
         {contributing ? "Searching..." : "Find Good First Issues"}
       </button>
     </div>
@@ -109,7 +112,7 @@ function Contribute({ activeIndex, contributing, onContribute }) {
 function Footer() {
   return (
     <div className={t.sidebar.footer}>
-      RAG · FAISS · Groq · Llama 3.3
+      RAG · FAISS · Groq · gpt-oss-120b
     </div>
   );
 }
