@@ -69,11 +69,11 @@ function EmptyState() {
   );
 }
 
-function ChatArea({ messages, loading, bottomRef }) {
+function ChatArea({ messages, loading, bottomRef, onAsk }) {
   return (
     <div className={t.layout.messages}>
       {messages.length === 0 && <EmptyState />}
-      {messages.map((msg, i) => <Message key={i} msg={msg} />)}
+      {messages.map((msg, i) => <Message key={i} msg={msg} onAsk={onAsk} />)}
       {loading && <div className={t.message.loading}>Searching codebase and generating answer...</div>}
       <div ref={bottomRef} />
     </div>
@@ -106,7 +106,7 @@ function MainPanel({ hook }) {
   const { showReview, reviewData, activeIndex, handleAskFromReview, setShowReview,
           showOnboard, onboardReport, setShowOnboard, handleSuggestedQuestion,
           showContribute, contributeData, setShowContribute, handleAskFromContribute,
-          messages, loading, bottomRef } = hook;
+          messages, loading, bottomRef, handleAskFromSource } = hook;
 
   if (showReview && reviewData) {
     return (
@@ -141,7 +141,7 @@ function MainPanel({ hook }) {
     );
   }
 
-  return <ChatArea messages={messages} loading={loading} bottomRef={bottomRef} />;
+  return <ChatArea messages={messages} loading={loading} bottomRef={bottomRef} onAsk={handleAskFromSource} />;
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
