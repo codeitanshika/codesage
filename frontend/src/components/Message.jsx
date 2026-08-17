@@ -40,7 +40,7 @@ function MarkdownContent({ content }) {
   );
 }
 
-function SourcesToggle({ sources, showSources, onToggle }) {
+function SourcesToggle({ sources, showSources, onToggle, onAsk }) {
   if (!sources?.length) return null;
   return (
     <div className="mt-3">
@@ -48,7 +48,7 @@ function SourcesToggle({ sources, showSources, onToggle }) {
         {showSources ? "▲ hide" : "▼ show"} {sources.length} source{sources.length > 1 ? "s" : ""}
       </button>
       {showSources && sources.map((chunk, i) => (
-        <SourceCard key={i} chunk={chunk} index={i} />
+        <SourceCard key={i} chunk={chunk} index={i} onAsk={onAsk} />
       ))}
     </div>
   );
@@ -66,7 +66,7 @@ function ReviewDownload({ msg }) {
   );
 }
 
-function AssistantMessage({ msg }) {
+function AssistantMessage({ msg, onAsk }) {
   const [showSources, setShowSources] = useState(false);
 
   return (
@@ -79,6 +79,7 @@ function AssistantMessage({ msg }) {
         sources={msg.sources}
         showSources={showSources}
         onToggle={() => setShowSources(!showSources)}
+        onAsk={onAsk}
       />
     </div>
   );
@@ -86,8 +87,8 @@ function AssistantMessage({ msg }) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export default function Message({ msg }) {
+export default function Message({ msg, onAsk }) {
   if (msg.role === "system")    return <SystemMessage content={msg.content} />;
   if (msg.role === "user")      return <UserMessage content={msg.content} />;
-  return <AssistantMessage msg={msg} />;
+  return <AssistantMessage msg={msg} onAsk={onAsk} />;
 }
