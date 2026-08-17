@@ -46,10 +46,11 @@ def find_contributions(request: ContributeRequest):
     ])
 
     response = pipe.generator.client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
+        model="openai/gpt-oss-120b",
         messages=[{"role": "user", "content": build_contribute_prompt(context)}],
         max_tokens=2000,
         temperature=0.1,
+        reasoning_effort="low",
     )
 
     raw = response.choices[0].message.content.strip()

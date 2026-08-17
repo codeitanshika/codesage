@@ -20,9 +20,9 @@ from groq import Groq
 from generation.prompts import CHAT_SYSTEM_PROMPT
 
 
-# Model to use — Llama 3.3 70B is Groq's best free model
-# Fast, smart, great at reading and explaining code
-GROQ_MODEL = "llama-3.3-70b-versatile"
+# Model to use — Groq deprecated llama-3.3-70b-versatile; gpt-oss-120b is
+# the largest model currently available on the free tier.
+GROQ_MODEL = "openai/gpt-oss-120b"
 
 # How many tokens the LLM can generate in its answer
 # 1024 is plenty for a detailed code explanation
@@ -97,6 +97,7 @@ Please answer based on the code chunks above, referencing specific files and lin
             messages=messages,
             max_tokens=MAX_TOKENS,
             temperature=0.1,
+            reasoning_effort="low",
         )
 
         return response.choices[0].message.content
