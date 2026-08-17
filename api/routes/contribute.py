@@ -8,7 +8,7 @@ import json
 
 from fastapi import APIRouter, HTTPException
 
-from api.deps import get_pipeline
+from api.deps import get_pipeline, get_store
 from api.models import ContributeRequest, ContributeResponse
 from generation.prompts import build_contribute_prompt
 
@@ -25,14 +25,11 @@ def find_contributions(request: ContributeRequest):
     Analyze an indexed codebase for good first issues and suggest fixes.
     Retrieves key chunks and sends them to the LLM with a contribution-finding prompt.
     """
-    from embedding.store import VectorStore
-
     pipe = get_pipeline()
 
-    store = VectorStore(name=request.index_name, index_dir="indexes")
-    if not store.exists():
+    store = get_store(request.index_name)
+    if not store:
         raise HTTPException(status_code=404, detail=f"Index '{request.index_name}' not found.")
-    store.load()
 
     query_vec = pipe.embedder.embed_one(CONTRIBUTE_QUERY)
     results = store.search(query_vec, top_k=8)
