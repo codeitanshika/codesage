@@ -90,6 +90,22 @@ function CodeReview({ activeIndex, reviewFocus, reviewing, onFocusChange, onRevi
   );
 }
 
+function Contribute({ activeIndex, contributing, onContribute }) {
+  if (!activeIndex) return null;
+  return (
+    <div className={t.sidebar.section}>
+      <div className={t.sidebar.label}>Contribute</div>
+      <button
+        className={t.button.purple}
+        onClick={onContribute}
+        disabled={contributing}
+      >
+        {contributing ? "Searching..." : "Find Good First Issues"}
+      </button>
+    </div>
+  );
+}
+
 function Footer() {
   return (
     <div className={t.sidebar.footer}>
@@ -109,6 +125,8 @@ export default function Sidebar({
   // Code review
   reviewFocus, reviewing,
   onReviewFocusChange, onReview,
+  // Contribute
+  contributing, onContribute,
 }) {
   return (
     <div className={t.sidebar.root}>
@@ -131,6 +149,11 @@ export default function Sidebar({
         reviewing={reviewing}
         onFocusChange={onReviewFocusChange}
         onReview={onReview}
+      />
+      <Contribute
+        activeIndex={activeIndex}
+        contributing={contributing}
+        onContribute={onContribute}
       />
       <Footer />
     </div>
