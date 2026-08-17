@@ -119,6 +119,9 @@ export const theme = {
     indexItem: "mt-2 w-full bg-blue-500 hover:bg-blue-400 text-gray-950 font-bold text-xs py-2 rounded-lg transition-colors disabled:opacity-50 cursor-pointer",
   },
 
+  // ── Spinner (inline loading indicator) ────────────────────────────────────
+  spinner: "inline-block w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin",
+
   // ── Input ─────────────────────────────────────────────────────────────────
   input: {
     base:     "w-full bg-gray-950 border border-gray-700 rounded-lg px-3 py-2 text-xs text-gray-100 placeholder-gray-600 outline-none focus:border-blue-500 transition-colors font-mono",
@@ -151,6 +154,13 @@ export const theme = {
           ? "text-blue-400 border-blue-400"
           : "text-gray-500 border-transparent hover:text-gray-300 hover:border-gray-600"
       }`,
+  },
+
+  // ── Empty state (tab content with nothing generated yet) ─────────────────
+  emptyState: {
+    root:    "flex-1 flex flex-col items-center justify-center text-center gap-4 text-gray-500 px-6",
+    title:   "text-lg font-semibold text-gray-300",
+    body:    "text-sm max-w-md leading-relaxed",
   },
 
   // ── Input bar (bottom of chat) ────────────────────────────────────────────
