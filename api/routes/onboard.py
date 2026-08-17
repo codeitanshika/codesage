@@ -8,7 +8,7 @@ import json
 
 from fastapi import APIRouter, HTTPException
 
-from api.deps import get_pipeline
+from api.deps import get_pipeline, get_store
 from api.models import OnboardRequest, OnboardResponse
 from generation.prompts import build_onboard_prompt
 
@@ -31,14 +31,11 @@ def onboard_repo(request: OnboardRequest):
     Retrieves key structural chunks and asks the LLM to explain
     the project as if onboarding a new contributor.
     """
-    from embedding.store import VectorStore
-
     pipe = get_pipeline()
 
-    store = VectorStore(name=request.index_name, index_dir="indexes")
-    if not store.exists():
+    store = get_store(request.index_name)
+    if not store:
         raise HTTPException(status_code=404, detail=f"Index '{request.index_name}' not found.")
-    store.load()
 
     # Query for the most structural/overview chunks
     all_chunks = []
