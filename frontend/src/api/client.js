@@ -54,3 +54,8 @@ export const reviewCode = (indexName, focus = "general") =>
 
 export const fetchOnboard = (indexName) =>
   api.post("/onboard", { index_name: indexName }).then((r) => r.data);
+
+// ── Contribute ───────────────────────────────────────────────────────────────
+
+export const fetchContributions = (indexName) =>
+  api.post("/contribute", { index_name: indexName }).then((r) => r.data);
