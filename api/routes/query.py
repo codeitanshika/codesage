@@ -6,7 +6,7 @@ Endpoints: /ask, /ask-multi
 
 from fastapi import APIRouter, HTTPException
 
-from api.deps import get_indexing_jobs, get_pipeline
+from api.deps import get_indexing_jobs, get_pipeline, get_store
 from api.models import AskMultiRequest, AskRequest, AskResponse, SourceChunk
 
 router = APIRouter()
@@ -53,12 +53,10 @@ def ask_question(request: AskRequest):
     in those chunks. Returns the answer plus the source chunks (shown as
     cards in the UI).
     """
-    from embedding.store import VectorStore
-
     pipe = get_pipeline()
 
-    store = VectorStore(name=request.index_name)
-    if not store.exists():
+    store = get_store(request.index_name)
+    if not store:
         job = get_indexing_jobs().get(request.index_name)
         if job and job["status"] == "indexing":
             raise HTTPException(
@@ -70,7 +68,6 @@ def ask_question(request: AskRequest):
             detail=f"Index '{request.index_name}' not found. Index the repo first.",
         )
 
-    store.load()
     query_vec = pipe.embedder.embed_one(request.question)
     results = store.search(query_vec, top_k=request.top_k)
 
@@ -102,16 +99,13 @@ def ask_multi(request: AskMultiRequest):
     Search across multiple indexes at once and generate one unified answer.
     Results from all repos are merged and ranked by score before sending to LLM.
     """
-    from embedding.store import VectorStore
-
     pipe = get_pipeline()
     all_results = []
 
     for index_name in request.index_names:
-        store = VectorStore(name=index_name, index_dir="indexes")
-        if not store.exists():
+        store = get_store(index_name)
+        if not store:
             continue
-        store.load()
         query_vec = pipe.embedder.embed_one(request.question)
         results = store.search(query_vec, top_k=request.top_k)
         # Tag each result with which repo it came from
