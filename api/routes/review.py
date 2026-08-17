@@ -8,7 +8,7 @@ import json
 
 from fastapi import APIRouter, HTTPException
 
-from api.deps import get_pipeline
+from api.deps import get_pipeline, get_store
 from api.models import ReviewRequest, ReviewResponse
 from generation.prompts import build_review_prompt
 
@@ -30,14 +30,11 @@ def review_code(request: ReviewRequest):
     Analyze an indexed codebase for issues and suggest fixes.
     Retrieves key chunks and sends them to the LLM with a code-review prompt.
     """
-    from embedding.store import VectorStore
-
     pipe = get_pipeline()
 
-    store = VectorStore(name=request.index_name, index_dir="indexes")
-    if not store.exists():
+    store = get_store(request.index_name)
+    if not store:
         raise HTTPException(status_code=404, detail=f"Index '{request.index_name}' not found.")
-    store.load()
 
     query = REVIEW_QUERIES.get(request.focus, REVIEW_QUERIES["general"])
     query_vec = pipe.embedder.embed_one(query)
