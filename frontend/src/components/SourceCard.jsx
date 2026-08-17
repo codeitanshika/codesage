@@ -73,7 +73,7 @@ function CardHeader({ chunk, path, score, open, onToggle }) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export default function SourceCard({ chunk, index }) {
+export default function SourceCard({ chunk, index, onAsk }) {
   const [open, setOpen] = useState(false);
 
   const score = Math.round(chunk.score * 100);
@@ -90,7 +90,15 @@ export default function SourceCard({ chunk, index }) {
         onToggle={() => setOpen(!open)}
       />
       {open && (
-        <pre className={t.code.preview}>{chunk.content}</pre>
+        <>
+          <pre className={t.code.preview}>{chunk.content}</pre>
+          <button
+            onClick={() => onAsk(`Tell me more about ${chunk.name} in ${path}`)}
+            className={`${t.button.ghost} m-3`}
+          >
+            💬 Ask CodeSage about this
+          </button>
+        </>
       )}
     </div>
   );
