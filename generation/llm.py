@@ -24,9 +24,10 @@ from generation.prompts import CHAT_SYSTEM_PROMPT
 # the largest model currently available on the free tier.
 GROQ_MODEL = "openai/gpt-oss-120b"
 
-# How many tokens the LLM can generate in its answer
-# 1024 is plenty for a detailed code explanation
-MAX_TOKENS = 1024
+# How many tokens the LLM can generate in its answer.
+# gpt-oss-120b is a reasoning model — its hidden reasoning tokens count
+# against this budget, so it needs headroom beyond just the visible answer.
+MAX_TOKENS = 2000
 
 
 class LLMGenerator:
@@ -97,7 +98,7 @@ Please answer based on the code chunks above, referencing specific files and lin
             messages=messages,
             max_tokens=MAX_TOKENS,
             temperature=0.1,
-            reasoning_effort="low",
+            reasoning_effort="medium",
         )
 
         return response.choices[0].message.content
