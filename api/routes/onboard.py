@@ -60,9 +60,9 @@ def onboard_repo(request: OnboardRequest):
     response = pipe.generator.client.chat.completions.create(
         model="openai/gpt-oss-120b",
         messages=[{"role": "user", "content": build_onboard_prompt(context)}],
-        max_tokens=1500,
+        max_tokens=3000,
         temperature=0.1,
-        reasoning_effort="low",
+        reasoning_effort="medium",
     )
 
     raw = response.choices[0].message.content.strip()
