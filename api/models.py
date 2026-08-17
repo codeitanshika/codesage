@@ -90,3 +90,13 @@ class OnboardResponse(BaseModel):
     suggested_questions: list[str]
     index_name: str
     repo_url: Optional[str] = None
+
+
+# ── Contribute models ────────────────────────────────────────────────────────
+
+class ContributeRequest(BaseModel):
+    index_name: str
+
+class ContributeResponse(BaseModel):
+    opportunities: list[dict]
+    index_name: str
