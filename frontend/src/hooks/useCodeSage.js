@@ -38,6 +38,10 @@ export default function useCodeSage() {
   const [reviewFocus, setReviewFocus]   = useState("general");
   const [reviewing, setReviewing]       = useState(false);
 
+  const [contributeData, setContributeData] = useState(null);
+  const [showContribute, setShowContribute] = useState(false);
+  const [contributing, setContributing]     = useState(false);
+
   const bottomRef = useRef(null);
 
   // ── Effects ─────────────────────────────────────────────────────────────────
@@ -67,6 +71,7 @@ export default function useCodeSage() {
     setActiveIndex(name);
     setShowReview(false);
     setShowOnboard(false);
+    setShowContribute(false);
     setOnboardReport(null);
     setMessages([{ role: "system", content: `Switched to: ${name}` }]);
     loadOnboardReport(name);
@@ -206,6 +211,33 @@ export default function useCodeSage() {
     setInput(q);
   }
 
+  // ── Contribute ────────────────────────────────────────────────────────────────
+
+  async function handleContribute() {
+    if (!activeIndex || contributing) return;
+    setContributing(true);
+    addSystemMsg(`🌱 Finding contribution opportunities in ${activeIndex}...`);
+    try {
+      const [contributeResult, repoInfo] = await Promise.all([
+        api.fetchContributions(activeIndex),
+        api.fetchRepoInfo(activeIndex),
+      ]);
+      setContributeData({ ...contributeResult, repo_url: repoInfo.repo_url });
+      setShowContribute(true);
+      setShowReview(false);
+      setShowOnboard(false);
+    } catch (e) {
+      addSystemMsg("❌ Contribution search failed: " + (e.response?.data?.detail || e.message));
+    } finally {
+      setContributing(false);
+    }
+  }
+
+  function handleAskFromContribute(q) {
+    setShowContribute(false);
+    setInput(q);
+  }
+
   // ── Return everything App needs ───────────────────────────────────────────────
 
   return {
@@ -237,5 +269,9 @@ export default function useCodeSage() {
     reviewData, showReview, reviewFocus,
     reviewing, setReviewFocus,
     setShowReview, handleReview, handleAskFromReview,
+
+    // Contribute
+    contributeData, showContribute, contributing,
+    setShowContribute, handleContribute, handleAskFromContribute,
   };
 }
