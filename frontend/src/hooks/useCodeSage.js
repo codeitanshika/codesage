@@ -238,6 +238,12 @@ export default function useCodeSage() {
     setInput(q);
   }
 
+  // ── Source cards ──────────────────────────────────────────────────────────────
+
+  function handleAskFromSource(q) {
+    setInput(q);
+  }
+
   // ── Return everything App needs ───────────────────────────────────────────────
 
   return {
