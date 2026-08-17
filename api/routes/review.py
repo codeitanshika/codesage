@@ -51,9 +51,9 @@ def review_code(request: ReviewRequest):
     response = pipe.generator.client.chat.completions.create(
         model="openai/gpt-oss-120b",
         messages=[{"role": "user", "content": build_review_prompt(request.focus, context)}],
-        max_tokens=2000,
+        max_tokens=4000,
         temperature=0.1,
-        reasoning_effort="low",
+        reasoning_effort="medium",
     )
 
     raw = response.choices[0].message.content.strip()
