@@ -11,7 +11,7 @@ load_dotenv()
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from api.routes import index, query, review, onboard
+from api.routes import index, query, review, onboard, contribute
 
 app = FastAPI(
     title="CodeSage API",
@@ -33,6 +33,7 @@ app.include_router(index.router)
 app.include_router(query.router)
 app.include_router(review.router)
 app.include_router(onboard.router)
+app.include_router(contribute.router)
 
 
 # ---------------------------------------------------------------------------
