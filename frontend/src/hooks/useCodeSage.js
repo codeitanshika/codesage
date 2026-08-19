@@ -136,6 +136,14 @@ export default function useCodeSage() {
 
   // ── Chat ─────────────────────────────────────────────────────────────────────
 
+  function updateLastMessage(updater) {
+    setMessages((prev) => {
+      const next = [...prev];
+      next[next.length - 1] = updater(next[next.length - 1]);
+      return next;
+    });
+  }
+
   async function handleAsk() {
     const question = input.trim();
     if (!question || !activeIndex || loading) return;
@@ -144,26 +152,56 @@ export default function useCodeSage() {
     setMessages((prev) => [...prev, { role: "user", content: question }]);
     setLoading(true);
 
-    try {
-      const history = buildHistory(messages);
-      const data = multiMode
-        ? await api.askMulti(question, indexes, history)
-        : await api.askQuestion(question, activeIndex, history);
+    const history = buildHistory(messages);
 
-      setMessages((prev) => [...prev, {
-        role: "assistant",
-        content: data.answer,
-        sources: data.sources,
-      }]);
-    } catch (e) {
-      setMessages((prev) => [...prev, {
-        role: "assistant",
-        content: `❌ ${e.response?.data?.detail || "Something went wrong."}`,
-        sources: [],
-      }]);
-    } finally {
-      setLoading(false);
+    // Multi-repo search merges results from several indexes before
+    // generating one answer — not streamed, kept as a single request.
+    if (multiMode) {
+      try {
+        const data = await api.askMulti(question, indexes, history);
+        setMessages((prev) => [...prev, {
+          role: "assistant",
+          content: data.answer,
+          sources: data.sources,
+        }]);
+      } catch (e) {
+        setMessages((prev) => [...prev, {
+          role: "assistant",
+          content: `❌ ${e.response?.data?.detail || "Something went wrong."}`,
+          sources: [],
+        }]);
+      } finally {
+        setLoading(false);
+      }
+      return;
     }
+
+    // Single-repo: stream the answer in token-by-token.
+    setMessages((prev) => [...prev, { role: "assistant", content: "", sources: [] }]);
+
+    let stillLoading = true;
+    function stopLoadingOnce() {
+      if (stillLoading) {
+        stillLoading = false;
+        setLoading(false);
+      }
+    }
+
+    await api.streamAsk(question, activeIndex, history, 5, {
+      onSources: (sources) => {
+        stopLoadingOnce();
+        updateLastMessage((m) => ({ ...m, sources }));
+      },
+      onToken: (token) => {
+        stopLoadingOnce();
+        updateLastMessage((m) => ({ ...m, content: m.content + token }));
+      },
+      onDone: () => setLoading(false),
+      onError: (detail) => {
+        updateLastMessage((m) => ({ ...m, content: `❌ ${detail || "Something went wrong."}` }));
+        setLoading(false);
+      },
+    });
   }
 
   function handleKey(e) {
