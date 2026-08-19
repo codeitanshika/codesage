@@ -120,13 +120,26 @@ Rules:
 # Contribution opportunities — used by /contribute
 # ---------------------------------------------------------------------------
 
-def build_contribute_prompt(context: str) -> str:
-    """Build the contribution-opportunities prompt for the retrieved context."""
+def build_contribute_prompt(context: str, existing_issues: list[dict] = None) -> str:
+    """Build the contribution-opportunities prompt for the retrieved context.
+
+    existing_issues: real open GitHub issues already filed for this repo
+    (from ingestion/github_issues.py) — passed in so the LLM doesn't
+    suggest something that's already been claimed.
+    """
+    existing_block = ""
+    if existing_issues:
+        titles = "\n".join(f"- {i['title']}" for i in existing_issues)
+        existing_block = f"""
+
+These issues are already open on GitHub — do NOT suggest anything that duplicates them:
+{titles}"""
+
     return f"""You are helping a new open-source contributor find good first issues in this codebase.
 
 Analyze the following code chunks and identify REAL opportunities to contribute — bugs, missing tests, missing docs, TODOs, small refactors.
 
-{context}
+{context}{existing_block}
 
 Respond with ONLY valid JSON, no markdown, no backticks:
 {{
