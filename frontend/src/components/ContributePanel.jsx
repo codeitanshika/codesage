@@ -9,6 +9,7 @@
 import { useState } from "react";
 import { theme as t } from "../styles/theme";
 import ContributionCard from "./ContributionCard";
+import RealIssueCard from "./RealIssueCard";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -44,6 +45,22 @@ function TabBar({ activeTab, opportunities, onSelect }) {
   );
 }
 
+function RealIssuesSection({ issues }) {
+  if (!issues.length) return null;
+  return (
+    <div className="flex flex-col gap-3 shrink-0">
+      <div className={t.text.sectionGreen}>
+        Already open on GitHub — real issues, not AI-inferred
+      </div>
+      <div className="flex flex-col gap-3">
+        {issues.map((issue) => (
+          <RealIssueCard key={issue.number} issue={issue} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function ContributionList({ opportunities, copied, onCopy, onAsk, repoUrl }) {
   if (!opportunities.length) {
     return (
@@ -72,6 +89,7 @@ export default function ContributePanel({ data, indexName, onClose, onAsk }) {
   const [copied, setCopied]       = useState(null);
 
   const opportunities = data?.opportunities || [];
+  const realIssues = data?.real_issues || [];
   const filtered = activeTab === "all" ? opportunities : opportunities.filter(o => o.difficulty === activeTab);
 
   function handleCopy(text, idx) {
@@ -81,14 +99,17 @@ export default function ContributePanel({ data, indexName, onClose, onAsk }) {
   }
 
   return (
-    <div className="flex flex-col flex-1 min-h-0 px-6 py-6 gap-4">
+    <div className="flex flex-col flex-1 min-h-0 px-6 py-6 gap-4 overflow-y-auto">
 
       <PanelHeader indexName={indexName} onClose={onClose} />
 
+      <RealIssuesSection issues={realIssues} />
+
+      <div className={t.text.sectionBlue}>AI-suggested opportunities</div>
+
       <TabBar activeTab={activeTab} opportunities={opportunities} onSelect={setActiveTab} />
 
-      {/* Scrollable opportunity list */}
-      <div className="flex flex-col gap-4 overflow-y-auto flex-1 pr-1">
+      <div className="flex flex-col gap-4 pr-1">
         <ContributionList
           opportunities={filtered}
           copied={copied}
