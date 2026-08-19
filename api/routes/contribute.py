@@ -11,6 +11,7 @@ from fastapi import APIRouter, HTTPException
 from api.deps import get_pipeline, get_store
 from api.models import ContributeRequest, ContributeResponse
 from generation.prompts import build_contribute_prompt
+from ingestion.github_issues import fetch_good_first_issues
 
 router = APIRouter()
 
@@ -42,9 +43,12 @@ def find_contributions(request: ContributeRequest):
         for r in results
     ])
 
+    repo_url = pipe._load_repo_url(request.index_name)
+    real_issues = fetch_good_first_issues(repo_url) if repo_url else []
+
     response = pipe.generator.client.chat.completions.create(
         model="openai/gpt-oss-120b",
-        messages=[{"role": "user", "content": build_contribute_prompt(context)}],
+        messages=[{"role": "user", "content": build_contribute_prompt(context, real_issues)}],
         max_tokens=4000,
         temperature=0.1,
         reasoning_effort="medium",
@@ -64,5 +68,6 @@ def find_contributions(request: ContributeRequest):
 
     return ContributeResponse(
         opportunities=data.get("opportunities", []),
+        real_issues=real_issues,
         index_name=request.index_name,
     )
