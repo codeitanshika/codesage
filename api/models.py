@@ -99,4 +99,5 @@ class ContributeRequest(BaseModel):
 
 class ContributeResponse(BaseModel):
     opportunities: list[dict]
+    real_issues: list[dict] = []  # actual open GitHub issues, not LLM-inferred
     index_name: str
