@@ -4,7 +4,10 @@ api/routes/query.py
 Endpoints: /ask, /ask-multi
 """
 
+import json
+
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
 
 from api.deps import get_indexing_jobs, get_pipeline, get_store
 from api.models import AskMultiRequest, AskRequest, AskResponse, SourceChunk
@@ -91,6 +94,62 @@ def ask_question(request: AskRequest):
         index_name=request.index_name,
         question=request.question,
     )
+
+
+@router.post("/ask/stream")
+def ask_question_stream(request: AskRequest):
+    """
+    Same as /ask, but streams the answer token-by-token over SSE instead
+    of waiting for the full response.
+
+    Event stream shape:
+        event: sources   data: [SourceChunk dicts]   (sent first — retrieval
+                                                        already happened)
+        data: {"token": "..."}                        (one per answer token)
+        event: done       data: {}                     (on success)
+        event: error       data: {"detail": "..."}     (if the LLM call fails)
+    """
+    pipe = get_pipeline()
+
+    store = get_store(request.index_name)
+    if not store:
+        job = get_indexing_jobs().get(request.index_name)
+        if job and job["status"] == "indexing":
+            raise HTTPException(
+                status_code=409,
+                detail=f"Index '{request.index_name}' is still being built. Please wait.",
+            )
+        raise HTTPException(
+            status_code=404,
+            detail=f"Index '{request.index_name}' not found. Index the repo first.",
+        )
+
+    query_vec = pipe.embedder.embed_one(request.question)
+    results = store.search(query_vec, top_k=request.top_k)
+
+    if not results:
+        raise HTTPException(
+            status_code=404,
+            detail="No relevant chunks found for that question.",
+        )
+
+    repo_url = pipe._load_repo_url(request.index_name) or ""
+    sources = _build_sources(results, repo_url)
+
+    def generate():
+        yield f"event: sources\ndata: {json.dumps([s.model_dump() for s in sources])}\n\n"
+        try:
+            for token in pipe.generator.answer_stream(
+                question=request.question,
+                chunks=results,
+                history=request.history,
+            ):
+                yield f"data: {json.dumps({'token': token})}\n\n"
+            yield "event: done\ndata: {}\n\n"
+        except Exception as e:
+            yield f"event: error\ndata: {json.dumps({'detail': str(e)})}\n\n"
+
+    return StreamingResponse(generate(), media_type="text/event-stream")
 
 
 @router.post("/ask-multi", response_model=AskResponse)
