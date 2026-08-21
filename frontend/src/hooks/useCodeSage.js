@@ -11,7 +11,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import * as api from "../api/client";
-import { nameFromUrl, buildHistory } from "../utils/helpers";
+import { nameFromUrl, buildHistory, saveChatSession, loadChatSession } from "../utils/helpers";
 
 export default function useCodeSage() {
 
@@ -53,6 +53,14 @@ export default function useCodeSage() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  // Restore chat history on reload, but only once it's still valid — the
+  // saved index has to still exist. Onboard/review/contribute data isn't
+  // persisted, just the chat itself.
+  useEffect(() => {
+    if (!activeIndex) return;
+    saveChatSession(activeIndex, messages);
+  }, [activeIndex, messages]);
+
   // ── Helpers ──────────────────────────────────────────────────────────────────
 
   function addSystemMsg(content) {
@@ -63,6 +71,12 @@ export default function useCodeSage() {
     try {
       const list = await api.fetchIndexes();
       setIndexes(list);
+
+      const saved = loadChatSession();
+      if (saved && list.includes(saved.activeIndex)) {
+        setActiveIndex(saved.activeIndex);
+        setMessages(saved.messages);
+      }
     } catch { /* backend not ready yet */ }
   }
 
