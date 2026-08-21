@@ -9,7 +9,7 @@ import json
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 
-from api.deps import get_indexing_jobs, get_pipeline, get_store
+from api.deps import cache_answer, get_cached_answer, get_indexing_jobs, get_pipeline, get_store
 from api.models import AskMultiRequest, AskRequest, AskResponse, SourceChunk
 
 router = APIRouter()
@@ -55,7 +55,17 @@ def ask_question(request: AskRequest):
     Retrieves top-k chunks and asks the LLM to generate an answer grounded
     in those chunks. Returns the answer plus the source chunks (shown as
     cards in the UI).
+
+    First-turn questions (no history) are cached by (index, question) —
+    history isn't part of the cache key since it changes the answer, so
+    follow-up questions always hit the LLM fresh.
     """
+    is_cacheable = not request.history
+    if is_cacheable:
+        cached = get_cached_answer(request.index_name, request.question)
+        if cached:
+            return AskResponse(**cached, index_name=request.index_name, question=request.question)
+
     pipe = get_pipeline()
 
     store = get_store(request.index_name)
@@ -87,10 +97,17 @@ def ask_question(request: AskRequest):
     )
 
     repo_url = pipe._load_repo_url(request.index_name) or ""
+    sources = _build_sources(results, repo_url)
+
+    if is_cacheable:
+        cache_answer(request.index_name, request.question, {
+            "answer": answer,
+            "sources": sources,
+        })
 
     return AskResponse(
         answer=answer,
-        sources=_build_sources(results, repo_url),
+        sources=sources,
         index_name=request.index_name,
         question=request.question,
     )
