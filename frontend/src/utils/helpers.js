@@ -55,3 +55,34 @@ export function buildHistory(messages, maxTurns = 6) {
     .map((m) => ({ role: m.role, content: m.content }))
     .slice(-maxTurns);
 }
+
+// ── Chat session persistence (survives a page reload) ──────────────────────
+
+const CHAT_SESSION_KEY = "codesage_chat_session";
+
+/**
+ * Save the active index + chat messages to localStorage.
+ */
+export function saveChatSession(activeIndex, messages) {
+  try {
+    localStorage.setItem(CHAT_SESSION_KEY, JSON.stringify({ activeIndex, messages }));
+  } catch {
+    /* storage full or unavailable — chat just won't persist, not fatal */
+  }
+}
+
+/**
+ * Load a previously saved session. Returns null if there isn't one or
+ * it's corrupted.
+ */
+export function loadChatSession() {
+  try {
+    const raw = localStorage.getItem(CHAT_SESSION_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed?.activeIndex || !Array.isArray(parsed.messages)) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
