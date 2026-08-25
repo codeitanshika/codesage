@@ -68,7 +68,7 @@ User asks a question
 ### Core RAG Pipeline
 Built from scratch — no LangChain, no frameworks. Every component written and understood from the ground up.
 
-- **AST-based code chunking** — tree-sitter parses code into functions and classes. Each retrieved chunk is a complete, runnable unit — not half a function.
+- **AST-based code chunking** — tree-sitter parses code into functions and classes. Each retrieved chunk is a complete, runnable unit — not half a function. Supports Python, JavaScript/TypeScript, Go, Java, Rust, and C++ (other file types fall back to whole-file or line-based chunks).
 - **Local embeddings** — sentence-transformers runs entirely on your machine. No API calls, no cost, no internet required after first download.
 - **FAISS vector search** — indexes and searches thousands of code chunks in milliseconds using cosine similarity.
 - **Groq LLM integration** — `gpt-oss-120b` generates grounded answers using only retrieved code as context. Never hallucinates file names.
@@ -235,14 +235,14 @@ python main.py chat --index micrograd
 - [x] Contribution opportunities endpoint + UI (draft PR title/description, effort estimate)
 - [x] Real GitHub issue cross-referencing for `/contribute` (avoids suggesting duplicates)
 - [x] "Ask about this" button on every card
+- [x] Streaming `/ask` responses (SSE) — answers appear token-by-token instead of all at once
+- [x] Persist chat history across page reloads (localStorage)
+- [x] Multi-query retrieval for `/review` and `/contribute` (same pattern `/onboard` uses)
+- [x] Response caching for repeated first-turn `/ask` questions
+- [x] Broader language support — tree-sitter chunking for Go, Java, Rust, C++ (plus Python/JS/TS)
 
 ### Next up
 - [ ] Deploy to Render + Vercel (live URL)
-- [ ] Streaming `/ask` responses (SSE) — currently blocks until the full answer returns
-- [ ] Broader language support — tree-sitter grammars beyond Python/JS/TS (Go, Java, Rust, C++)
-- [ ] Multi-query retrieval for `/review` and `/contribute` (same pattern `/onboard` already uses)
-- [ ] Response caching for repeated `/ask` questions
-- [ ] Persist chat history across page reloads (localStorage)
 - [ ] Webhook-triggered auto re-indexing on push
 - [ ] VS Code extension
 
