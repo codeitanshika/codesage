@@ -43,6 +43,10 @@ def _get_parser(language_name: str):
     try:
         import tree_sitter_python
         import tree_sitter_javascript
+        import tree_sitter_go
+        import tree_sitter_java
+        import tree_sitter_rust
+        import tree_sitter_cpp
         from tree_sitter import Language, Parser
 
         language_map = {
@@ -51,6 +55,10 @@ def _get_parser(language_name: str):
             "typescript": tree_sitter_javascript.language(),  # close enough for chunking
             "jsx":        tree_sitter_javascript.language(),
             "tsx":        tree_sitter_javascript.language(),
+            "go":         tree_sitter_go.language(),
+            "java":       tree_sitter_java.language(),
+            "rust":       tree_sitter_rust.language(),
+            "cpp":        tree_sitter_cpp.language(),
         }
 
         if language_name not in language_map:
@@ -71,6 +79,10 @@ EXTENSION_TO_LANGUAGE = {
     ".ts":  "typescript",
     ".jsx": "jsx",
     ".tsx": "tsx",
+    ".go":  "go",
+    ".java": "java",
+    ".rs":  "rust",
+    ".cpp": "cpp",
 }
 
 # Node types in the AST that we treat as top-level chunks
@@ -101,6 +113,32 @@ CHUNK_NODE_TYPES = {
 }
 CHUNK_NODE_TYPES["jsx"] = CHUNK_NODE_TYPES["javascript"]
 CHUNK_NODE_TYPES["tsx"] = CHUNK_NODE_TYPES["typescript"]
+
+CHUNK_NODE_TYPES["go"] = {
+    "function_declaration",   # func Foo() {}
+    "method_declaration",     # func (r Receiver) Foo() {}
+    "type_declaration",       # type Foo struct{...} / type Foo interface{...}
+}
+CHUNK_NODE_TYPES["java"] = {
+    "class_declaration",
+    "interface_declaration",
+    "enum_declaration",
+    "record_declaration",
+}
+CHUNK_NODE_TYPES["rust"] = {
+    "function_item",   # not nested inside impl_item's own chunk (see below),
+                        # so methods inside `impl` blocks get their own chunks too
+    "struct_item",
+    "trait_item",
+    "enum_item",
+}
+CHUNK_NODE_TYPES["cpp"] = {
+    "function_definition",   # free functions; methods defined inline inside a
+                              # class are swallowed into that class's chunk,
+                              # same as Python/Java
+    "class_specifier",
+    "struct_specifier",
+}
 
 
 # ---------------------------------------------------------------------------
@@ -185,11 +223,30 @@ def _parse_with_treesitter(
     lines = content.splitlines()
     chunks = []
 
+    # Different grammars use different node types for names: plain
+    # "identifier" (Python/JS/Go functions/Rust functions), "type_identifier"
+    # (Rust/C++ struct/class names, Go type names), or "field_identifier"
+    # (Go method names).
+    NAME_NODE_TYPES = {"identifier", "type_identifier", "field_identifier"}
+
     def extract_name(node) -> str:
-        """Pull the name out of a function/class node."""
+        """
+        Pull the name out of a function/class/type node. Checks direct
+        children first, then one level deeper — covers cases where the
+        name is nested (Go's `type_declaration` -> `type_spec` ->
+        `type_identifier`, C++'s `function_definition` ->
+        `function_declarator` -> `identifier`, a Python `@decorator`-
+        wrapped def/class, or a JS `const foo = () => {}`).
+        """
         for child in node.children:
-            if child.type == "identifier":
+            if child.type in NAME_NODE_TYPES:
                 return child.text.decode("utf-8")
+        for child in node.children:
+            if child.type == "decorator":
+                continue  # e.g. @staticmethod — never the name of the thing it decorates
+            for grandchild in child.children:
+                if grandchild.type in NAME_NODE_TYPES:
+                    return grandchild.text.decode("utf-8")
         return "unknown"
 
     def visit(node, depth=0):
@@ -210,7 +267,13 @@ def _parse_with_treesitter(
                 return
 
             name = extract_name(node)
-            node_type = node.type.replace("_definition", "").replace("_declaration", "")
+            node_type = (
+                node.type
+                .replace("_definition", "")
+                .replace("_declaration", "")
+                .replace("_specifier", "")
+                .replace("_item", "")
+            )
 
             chunks.append({
                 "content":    chunk_text,
