@@ -107,7 +107,7 @@ codesage/
 ├── api/                        # FastAPI backend (HTTP endpoints)
 │   ├── __init__.py
 │   ├── app.py                  # FastAPI setup, CORS, route registration
-│   ├── deps.py                 # Shared pipeline instance, indexing jobs, cached VectorStores
+│   ├── deps.py                 # Shared pipeline instance, indexing jobs, cached VectorStores + /ask answers
 │   ├── models.py                # All Pydantic request/response models
 │   └── routes/
 │       ├── __init__.py
@@ -204,6 +204,7 @@ python main.py chat --index micrograd
 | GET | `/repo-info/{name}` | GitHub URL saved for an index |
 | POST | `/index` | Index a GitHub repo (background) |
 | POST | `/ask` | Ask a question |
+| POST | `/ask/stream` | Ask a question, streamed token-by-token (SSE) |
 | POST | `/ask-multi` | Search across multiple indexes |
 | POST | `/review` | Run a code review |
 | POST | `/onboard` | Generate an onboarding report |
