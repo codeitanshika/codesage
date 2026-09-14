@@ -1,0 +1,23 @@
+# Render Blueprint for the CodeSage backend.
+# https://render.com/docs/blueprint-spec
+#
+# Known limitation: Render's free-tier web services have no persistent
+# disk. The indexes/ directory (FAISS indexes + chunk metadata) is
+# gitignored and lives only on local disk during development, so every
+# redeploy starts with zero indexed repos — they need re-indexing after
+# each deploy. A paid instance with a persistent disk removes this.
+
+services:
+  - type: web
+    name: codesage-api
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn api.app:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GITHUB_TOKEN
+        sync: false
+      - key: ALLOWED_ORIGINS
+        sync: false
