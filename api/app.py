@@ -5,6 +5,8 @@ FastAPI app setup — CORS, middleware, route registration.
 Entry point: uvicorn api.app:app --reload --port 8000
 """
 
+import os
+
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -19,12 +21,15 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# CORS — this is what allows your React frontend (running on localhost:5173)
-# to talk to this backend (running on localhost:8000).
+# CORS — this is what allows the React frontend to talk to this backend.
 # Without this, the browser blocks cross-origin requests.
+# ALLOWED_ORIGINS is a comma-separated list (e.g. your Vercel URL) —
+# defaults to "*" so local dev (localhost:5173 -> localhost:8000) works
+# with zero config. Set it explicitly once deployed.
+allowed_origins = os.environ.get("ALLOWED_ORIGINS", "*").split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],   # in production you'd lock this to your frontend URL
+    allow_origins=allowed_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )
