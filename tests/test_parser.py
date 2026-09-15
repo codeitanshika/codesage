@@ -16,6 +16,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+# Windows consoles often default to a legacy codepage that can't encode
+# arbitrary Unicode -- and this script previews raw source from
+# whatever repo gets cloned, which can contain anything.
+sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
 from ingestion.clone import load_repo
 from ingestion.parser import parse_file
 
