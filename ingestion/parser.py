@@ -194,7 +194,7 @@ def parse_repo(file_paths: list[str], repo_root: str) -> list[dict]:
         if (i + 1) % 50 == 0:
             print(f"  Parsed {i + 1}/{len(file_paths)} files — {len(all_chunks)} chunks so far")
 
-    print(f"  Done. {len(file_paths)} files → {len(all_chunks)} total chunks")
+    print(f"  Done. {len(file_paths)} files -> {len(all_chunks)} total chunks")
     return all_chunks
 
 
