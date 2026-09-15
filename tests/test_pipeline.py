@@ -15,6 +15,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+# Windows consoles often default to a legacy codepage that can't encode
+# the Unicode punctuation the LLM's answers routinely contain.
+sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
 from pipeline import CodeSagePipeline
 
 if __name__ == "__main__":
