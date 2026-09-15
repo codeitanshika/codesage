@@ -195,7 +195,7 @@ class CodeSagePipeline:
             cleanup_repo(repo_root)
 
         total_time = time.time() - total_start
-        print(f"\n✅ Indexing complete in {total_time:.1f}s")
+        print(f"\n[done] Indexing complete in {total_time:.1f}s")
         print(f"   {store.chunk_count} chunks indexed and ready to search.\n")
         # Save file hashes for next incremental run
         self._save_hashes(name, current_hashes)
@@ -243,7 +243,7 @@ class CodeSagePipeline:
         results = store.search(query_vec, top_k=top_k)
 
         if show_sources:
-            print(f"\n📂 Retrieved {len(results)} relevant chunks:")
+            print(f"\nRetrieved {len(results)} relevant chunks:")
             for r in results:
                 print(f"   {r['score']:.3f}  {r['rel_path']}:{r['start_line']}  [{r['type']}] {r['name']}")
             print()
