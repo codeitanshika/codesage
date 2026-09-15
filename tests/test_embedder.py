@@ -30,7 +30,7 @@ if __name__ == "__main__":
     ]
     vectors = embedder.embed(sentences, show_progress=False)
     print(f"Input:  {len(sentences)} sentences")
-    print(f"Output: {vectors.shape}  ← (num_sentences, vector_size)")
+    print(f"Output: {vectors.shape}  (num_sentences, vector_size)")
 
     # Test 2: similarity — the core of RAG retrieval
     print("\n--- Test 2: Similarity scores ---")
@@ -41,7 +41,7 @@ if __name__ == "__main__":
     print()
     for sentence, vec in zip(sentences, vectors):
         score = embedder.similarity(query_vec, vec)
-        bar = "█" * int(score * 30)
+        bar = "#" * int(score * 30)
         print(f"  {score:.3f} {bar}")
         print(f"         '{sentence[:60]}'")
 
