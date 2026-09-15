@@ -19,7 +19,14 @@ Usage:
 import argparse
 import sys
 from pipeline import CodeSagePipeline
- 
+
+# Windows consoles often default to a legacy codepage (e.g. cp1252) that
+# can't encode emoji or the Unicode punctuation the LLM's answers
+# routinely contain (non-breaking hyphens, smart quotes, etc.), which
+# crashes every print() that hits one. Force UTF-8 on stdout so any
+# character the model or this CLI outputs is always printable.
+sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
  
 def cmd_index(args, pipe: CodeSagePipeline):
     """Handle the 'index' command."""
